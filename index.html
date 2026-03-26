@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eddie AI — Training Console</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">
+        <div class="logo-mark">Ei</div>
+        <div class="logo-text">
+          <span>Eddie AI</span>
+          <span>Training Console</span>
+        </div>
+      </div>
+      <div class="tab-switcher">
+        <button class="tab-btn active" data-tab="playbooks">Playbooks</button>
+        <button class="tab-btn" data-tab="trainer">AI Trainer</button>
+        <button class="tab-btn" data-tab="docsync">Export</button>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="action-btn" id="add-playbook-btn">+ Add Playbook</button>
+      <button class="sync-btn" id="header-sync-btn">
+        <span class="pulse-dot"></span>
+        Export Doc
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Content Area ── -->
+  <div class="content-area">
+
+    <!-- ══ Tab 1: Playbooks ══ -->
+    <div id="tab-playbooks" class="tab-panel active">
+      <aside class="sidebar">
+        <nav id="sidebar-nav"></nav>
+      </aside>
+      <main class="main-panel" id="playbook-content">
+        <!-- Rendered by router.js -->
+      </main>
+      <aside class="step-editor-panel hidden" id="step-editor-panel">
+        <div class="step-editor-header">
+          <h3 id="step-editor-title">Edit Step</h3>
+          <button class="editor-close-btn" id="step-editor-close">&times;</button>
+        </div>
+        <div class="step-editor-body">
+          <div class="editor-field">
+            <label>Step Number</label>
+            <input type="text" id="step-editor-number" placeholder="1">
+          </div>
+          <div class="editor-field">
+            <label>Step Title</label>
+            <input type="text" id="step-editor-step-title" placeholder="Step title…">
+          </div>
+          <div class="editor-field" style="flex:1;display:flex;flex-direction:column;">
+            <label>Content (Markdown)</label>
+            <textarea id="step-editor-content" placeholder="Step content…" style="flex:1;min-height:200px;"></textarea>
+          </div>
+          <details style="cursor:pointer;margin-top:4px;">
+            <summary style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;">Syntax Reference</summary>
+            <div style="font-family:'DM Mono',monospace;font-size:10.5px;color:var(--text3);line-height:1.7;margin-top:6px;white-space:pre-wrap;">:::eddie         → "Eddie says" block
+:::internal      → internal note block
+:::warn Label    → warning block
+:::ok Label      → success block
+:::              → closes any block
+- Cond → Dest    → branch row
+- Cond → ✅ RESOLVED
+[[a|Playbook A]] → route link
+{green|Tag Text} → colored tag
+**bold** *italic* → formatting</div>
+          </details>
+        </div>
+        <div class="step-editor-footer">
+          <button class="editor-cancel-btn" id="step-editor-cancel">Cancel</button>
+          <button class="editor-save-btn" id="step-editor-save">Save Step</button>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ══ Tab 2: AI Trainer ══ -->
+    <div id="tab-trainer" class="tab-panel">
+      <div class="chat-area">
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-notice">Select a scenario to begin training, or type a message below.</div>
+        </div>
+        <div class="chat-input-bar">
+          <textarea class="chat-input" id="chat-input" placeholder="Type a customer message…" rows="1"></textarea>
+          <button class="send-btn" id="send-btn">Send</button>
+        </div>
+      </div>
+      <aside class="trainer-sidebar">
+        <h3>Training Scenarios</h3>
+        <div id="scenario-cards"></div>
+        <div class="custom-scenario">
+          <h4>Custom Scenario</h4>
+          <textarea class="custom-textarea" id="custom-scenario-input" placeholder="Describe a custom scenario or type a customer's opening message…"></textarea>
+          <button class="custom-start-btn" id="custom-start-btn">Start Custom Scenario</button>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ══ Tab 3: Export ══ -->
+    <div id="tab-docsync" class="tab-panel">
+      <div class="docsync-panel">
+        <div class="docsync-header">
+          <h2>Export Playbooks</h2>
+          <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">
+            Download all playbook content as a Word document for offline reference, printing, or sharing.
+          </p>
+          <div class="docsync-controls">
+            <button class="docsync-sync-btn" id="docsync-btn">Download .doc</button>
+          </div>
+          <div class="docsync-status" id="docsync-status">
+            <span class="status-dot" style="background:var(--text3)"></span>
+            <span style="color:var(--text3)">Ready to export</span>
+          </div>
+        </div>
+        <div class="docsync-body" id="docsync-body">
+          <p class="placeholder-text">Click "Download .doc" to generate the document.</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content-area -->
+
+</div><!-- /app -->
+
+<!-- ── API Key Modal ── -->
+<div id="api-key-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>API Key Required</h2>
+    <p class="modal-desc">Enter your Anthropic API key to enable the AI Trainer.</p>
+    <input type="password" id="api-key-input" placeholder="sk-ant-api03-…">
+    <p class="modal-note">Your key is stored in sessionStorage only — it's never sent anywhere except api.anthropic.com. It will be cleared when you close this tab.</p>
+    <button class="modal-confirm-btn" id="api-key-confirm">Confirm</button>
+  </div>
+</div>
+
+<!-- ── Playbook Editor Modal (full playbook) ── -->
+<div id="editor-overlay" class="editor-overlay hidden">
+  <div class="editor-modal">
+    <div class="editor-modal-header">
+      <h2 id="editor-title">Edit Playbook</h2>
+      <button class="editor-close-btn" id="editor-close-btn">&times;</button>
+    </div>
+    <div class="editor-modal-body">
+      <div class="editor-field">
+        <label>Title</label>
+        <input type="text" id="editor-pb-title" placeholder="Playbook title…">
+      </div>
+      <div class="editor-field">
+        <label>Subtitle</label>
+        <input type="text" id="editor-pb-subtitle" placeholder="Short description…">
+      </div>
+      <div class="editor-field">
+        <label>Status</label>
+        <select id="editor-pb-status">
+          <option value="active">Active</option>
+          <option value="soon">Coming Soon</option>
+        </select>
+      </div>
+      <div class="editor-field">
+        <label>Content (Markdown)</label>
+        <textarea id="editor-pb-content" placeholder="Playbook content in Markdown…"></textarea>
+      </div>
+      <div style="padding:0 2px;">
+        <details style="cursor:pointer;">
+          <summary style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;">Syntax Reference</summary>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);line-height:1.7;margin-top:8px;white-space:pre-wrap;">## Step 1: Title     → collapsible step card
+:::eddie             → "Eddie says" block
+:::internal          → internal note block
+:::warn Label        → warning block
+:::ok Label          → success block
+:::                  → closes any block
+- Condition → Dest   → branch row
+- Condition → ✅ RESOLVED
+[[a|Playbook A]]     → route link
+{green|Tag Text}     → colored tag
+**bold**  *italic*   → inline formatting
+| Col | Col |        → table</div>
+        </details>
+      </div>
+    </div>
+    <div class="editor-modal-footer">
+      <button class="editor-cancel-btn" id="editor-cancel-btn">Cancel</button>
+      <button class="editor-save-btn" id="editor-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scripts ── -->
+<script src="js/namespace.js"></script>
+
+<!-- Playbook content -->
+<script src="playbooks/master.js"></script>
+<script src="playbooks/playbook-a.js"></script>
+<script src="playbooks/playbook-b.js"></script>
+<script src="playbooks/playbook-c.js"></script>
+<script src="playbooks/playbook-d.js"></script>
+<script src="playbooks/playbook-e.js"></script>
+<script src="playbooks/playbook-f.js"></script>
+<script src="playbooks/playbook-g.js"></script>
+<script src="playbooks/universal-rules.js"></script>
+
+<!-- App modules -->
+<script src="js/markdown.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/router.js"></script>
+<script src="js/api.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/scenarios.js"></script>
+<script src="js/doc-sync.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

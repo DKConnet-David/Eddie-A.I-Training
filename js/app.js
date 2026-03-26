@@ -1,0 +1,367 @@
+// App initialization — wired last after all modules
+
+Eddie.ui = {
+  // Currently editing step state
+  _editingStep: null, // { playbookId, stepIndex, parts }
+
+  toggleStep: function(headerEl) {
+    var card = headerEl.parentElement;
+    var wasOpen = card.classList.contains('open');
+
+    card.classList.toggle('open');
+
+    // If opening a step, load it into the side editor
+    if (!wasOpen) {
+      var stepIndex = parseInt(card.dataset.stepIndex, 10);
+      if (!isNaN(stepIndex) && stepIndex >= 0) {
+        this.openStepEditor(stepIndex);
+      }
+    }
+  },
+
+  // ── Step Editor ──
+  openStepEditor: function(stepIndex) {
+    var id = Eddie.state.activePlaybook;
+    var pb = Eddie.playbooks[id];
+    if (!pb) return;
+
+    var overrides = Eddie.storage.getPlaybookOverrides();
+    var md = (overrides[id] && overrides[id].markdown) ? overrides[id].markdown : pb.markdown;
+    var parts = Eddie.markdown.splitMarkdownSteps(md);
+
+    if (stepIndex >= parts.steps.length) return;
+
+    var step = parts.steps[stepIndex];
+
+    this._editingStep = {
+      playbookId: id,
+      stepIndex: stepIndex,
+      parts: parts
+    };
+
+    document.getElementById('step-editor-title').textContent = 'Step ' + step.number;
+    document.getElementById('step-editor-number').value = step.number;
+    document.getElementById('step-editor-step-title').value = step.title;
+    document.getElementById('step-editor-content').value = step.markdown;
+
+    document.getElementById('step-editor-panel').classList.remove('hidden');
+
+    // Highlight active step card
+    document.querySelectorAll('#playbook-content .step-card').forEach(function(c) {
+      c.classList.toggle('editing', parseInt(c.dataset.stepIndex, 10) === stepIndex);
+    });
+  },
+
+  closeStepEditor: function() {
+    this._editingStep = null;
+    document.getElementById('step-editor-panel').classList.add('hidden');
+    document.querySelectorAll('#playbook-content .step-card.editing').forEach(function(c) {
+      c.classList.remove('editing');
+    });
+  },
+
+  saveStepEdit: function() {
+    if (!this._editingStep) return;
+
+    var es = this._editingStep;
+    var step = es.parts.steps[es.stepIndex];
+
+    // Update step from editor fields
+    step.number = document.getElementById('step-editor-number').value.trim() || step.number;
+    step.title = document.getElementById('step-editor-step-title').value.trim() || step.title;
+    step.markdown = document.getElementById('step-editor-content').value;
+
+    // Reassemble full markdown
+    var fullMd = Eddie.markdown.joinMarkdownSteps(es.parts);
+
+    // Save as override
+    var pb = Eddie.playbooks[es.playbookId];
+    Eddie.storage.savePlaybookOverride(es.playbookId, {
+      title: pb.title,
+      subtitle: pb.subtitle,
+      status: pb.status,
+      markdown: fullMd
+    });
+
+    // Re-render the playbook
+    this.closeStepEditor();
+    Eddie.router.renderPlaybook(es.playbookId);
+
+    // Re-open the step that was just edited
+    var cards = document.querySelectorAll('#playbook-content .step-card');
+    cards.forEach(function(c) {
+      if (parseInt(c.dataset.stepIndex, 10) === es.stepIndex) {
+        c.classList.add('open');
+      }
+    });
+  },
+
+  // ── API Key Modal ──
+  showApiKeyModal: function() {
+    document.getElementById('api-key-modal').classList.remove('hidden');
+    setTimeout(function() {
+      document.getElementById('api-key-input').focus();
+    }, 100);
+  },
+
+  hideApiKeyModal: function() {
+    document.getElementById('api-key-modal').classList.add('hidden');
+  },
+
+  // ── Sidebar ──
+  buildSidebarHTML: function() {
+    var html = '';
+    var groups = {
+      entry: { label: 'Entry', items: [] },
+      playbooks: { label: 'Playbooks', items: [] },
+      reference: { label: 'Reference', items: [] }
+    };
+
+    Eddie.playbookOrder.forEach(function(id) {
+      var pb = Eddie.playbooks[id];
+      if (!pb) return;
+      var group = groups[pb.group] || groups.playbooks;
+      group.items.push(pb);
+    });
+
+    var customs = Eddie.storage.getCustomPlaybooks();
+    Object.keys(customs).forEach(function(id) {
+      if (!Eddie.playbooks[id]) {
+        groups.playbooks.items.push(customs[id]);
+      }
+    });
+
+    Object.keys(groups).forEach(function(key) {
+      var group = groups[key];
+      if (group.items.length === 0) return;
+
+      html += '<div class="sidebar-group">';
+      html += '<div class="sidebar-group-label">' + group.label + '</div>';
+
+      group.items.forEach(function(pb) {
+        var isActive = pb.id === Eddie.state.activePlaybook;
+        var badgeClass = pb.status === 'active' ? 'active-badge' : 'soon-badge';
+        var badgeLabel = pb.status === 'active' ? 'Active' : 'Soon';
+        var dotColor = pb.status === 'active' ? 'var(--success)' : 'var(--warning)';
+
+        var name = pb.id === 'master' ? 'Master Entry' :
+                   pb.id === 'rules' ? 'Universal Rules' :
+                   'Playbook ' + pb.id.toUpperCase();
+        var sub = pb.subtitle || '';
+
+        html += '<div class="nav-item' + (isActive ? ' active' : '') + '" data-route="' + pb.id + '">';
+        html += '<div class="nav-dot" style="background:' + dotColor + '"></div>';
+        html += '<div class="nav-info">';
+        html += '<div class="nav-name">' + name + '</div>';
+        html += '<div class="nav-sub">' + sub + '</div>';
+        html += '</div>';
+        html += '<span class="nav-badge ' + badgeClass + '">' + badgeLabel + '</span>';
+        html += '</div>';
+      });
+
+      html += '</div>';
+    });
+
+    return html;
+  },
+
+  // ── Full Playbook Editor (modal) ──
+  editPlaybook: function(id) {
+    var pb = Eddie.playbooks[id];
+    if (!pb) return;
+
+    var overrides = Eddie.storage.getPlaybookOverrides();
+    var currentMd = (overrides[id] && overrides[id].markdown) ? overrides[id].markdown : pb.markdown;
+
+    document.getElementById('editor-title').textContent = 'Edit: ' + (pb.title || id);
+    document.getElementById('editor-pb-title').value = overrides[id] ? (overrides[id].title || pb.title) : pb.title;
+    document.getElementById('editor-pb-subtitle').value = overrides[id] ? (overrides[id].subtitle || pb.subtitle) : pb.subtitle;
+    document.getElementById('editor-pb-status').value = overrides[id] ? (overrides[id].status || pb.status) : pb.status;
+    document.getElementById('editor-pb-content').value = currentMd.trim();
+    document.getElementById('editor-overlay').classList.remove('hidden');
+
+    document.getElementById('editor-overlay').dataset.editingId = id;
+  },
+
+  savePlaybookEdit: function() {
+    var id = document.getElementById('editor-overlay').dataset.editingId;
+    if (!id) return;
+
+    var title = document.getElementById('editor-pb-title').value.trim();
+    var subtitle = document.getElementById('editor-pb-subtitle').value.trim();
+    var status = document.getElementById('editor-pb-status').value;
+    var markdown = document.getElementById('editor-pb-content').value;
+
+    Eddie.storage.savePlaybookOverride(id, {
+      title: title,
+      subtitle: subtitle,
+      status: status,
+      markdown: markdown
+    });
+
+    if (Eddie.playbooks[id]) {
+      Eddie.playbooks[id].title = title;
+      Eddie.playbooks[id].subtitle = subtitle;
+      Eddie.playbooks[id].status = status;
+    }
+
+    document.getElementById('editor-overlay').classList.add('hidden');
+    Eddie.router.renderPlaybook(id);
+    Eddie.router.rebuildSidebar();
+  },
+
+  resetPlaybook: function(id) {
+    Eddie.storage.removePlaybookOverride(id);
+    Eddie.router.renderPlaybook(id);
+    Eddie.router.rebuildSidebar();
+  },
+
+  showAddPlaybookModal: function() {
+    document.getElementById('editor-title').textContent = 'Add New Playbook';
+    document.getElementById('editor-pb-title').value = '';
+    document.getElementById('editor-pb-subtitle').value = '';
+    document.getElementById('editor-pb-status').value = 'active';
+    document.getElementById('editor-pb-content').value = '## Step 1: Step Title\n\n:::eddie\nMessage content here.\n:::\n\n- Condition A \u2192 Step 2\n- Condition B \u2192 \u2705 RESOLVED\n\n## Step 2: Next Step\n\n:::eddie\nNext message.\n:::\n\n:::internal\nInternal notes here.\n:::';
+    document.getElementById('editor-overlay').classList.remove('hidden');
+    document.getElementById('editor-overlay').dataset.editingId = '__new__';
+  },
+
+  saveNewPlaybook: function(id, title, subtitle, status, markdown) {
+    var newId = id || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!newId) newId = 'custom-' + Date.now();
+
+    var pb = {
+      id: newId,
+      title: title,
+      subtitle: subtitle,
+      status: status,
+      color: status === 'active' ? 'var(--success)' : 'var(--warning)',
+      group: 'playbooks',
+      keywords: [],
+      markdown: markdown
+    };
+
+    var customs = Eddie.storage.getCustomPlaybooks();
+    customs[newId] = pb;
+    Eddie.storage.saveCustomPlaybooks(customs);
+
+    Eddie.playbooks[newId] = pb;
+    if (Eddie.playbookOrder.indexOf(newId) === -1) {
+      var rulesIdx = Eddie.playbookOrder.indexOf('rules');
+      if (rulesIdx > -1) {
+        Eddie.playbookOrder.splice(rulesIdx, 0, newId);
+      } else {
+        Eddie.playbookOrder.push(newId);
+      }
+    }
+
+    Eddie.router.rebuildSidebar();
+    Eddie.router.navigatePlaybook(newId);
+  }
+};
+
+// ── Initialize everything ──
+document.addEventListener('DOMContentLoaded', function() {
+  // Load custom playbooks into runtime
+  var customs = Eddie.storage.getCustomPlaybooks();
+  Object.keys(customs).forEach(function(id) {
+    if (!Eddie.playbooks[id]) {
+      Eddie.playbooks[id] = customs[id];
+      if (Eddie.playbookOrder.indexOf(id) === -1) {
+        var rulesIdx = Eddie.playbookOrder.indexOf('rules');
+        if (rulesIdx > -1) {
+          Eddie.playbookOrder.splice(rulesIdx, 0, id);
+        } else {
+          Eddie.playbookOrder.push(id);
+        }
+      }
+    }
+  });
+
+  // Apply playbook overrides metadata
+  var overrides = Eddie.storage.getPlaybookOverrides();
+  Object.keys(overrides).forEach(function(id) {
+    if (Eddie.playbooks[id] && overrides[id]) {
+      if (overrides[id].title) Eddie.playbooks[id].title = overrides[id].title;
+      if (overrides[id].subtitle) Eddie.playbooks[id].subtitle = overrides[id].subtitle;
+      if (overrides[id].status) Eddie.playbooks[id].status = overrides[id].status;
+    }
+  });
+
+  // Build sidebar
+  document.getElementById('sidebar-nav').innerHTML = Eddie.ui.buildSidebarHTML();
+
+  // Init modules
+  Eddie.router.init();
+  Eddie.chat.init();
+  Eddie.scenarios.renderCards();
+  Eddie.scenarios.initCustom();
+  Eddie.docExport.init();
+
+  // API key modal
+  document.getElementById('api-key-confirm').addEventListener('click', function() {
+    var key = document.getElementById('api-key-input').value.trim();
+    if (key) {
+      Eddie.storage.setApiKey(key);
+      Eddie.ui.hideApiKeyModal();
+    }
+  });
+
+  document.getElementById('api-key-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      document.getElementById('api-key-confirm').click();
+    }
+  });
+
+  // Full playbook editor modal
+  document.getElementById('editor-save-btn').addEventListener('click', function() {
+    var editingId = document.getElementById('editor-overlay').dataset.editingId;
+    if (editingId === '__new__') {
+      var title = document.getElementById('editor-pb-title').value.trim();
+      var subtitle = document.getElementById('editor-pb-subtitle').value.trim();
+      var status = document.getElementById('editor-pb-status').value;
+      var markdown = document.getElementById('editor-pb-content').value;
+      if (title) {
+        Eddie.ui.saveNewPlaybook(null, title, subtitle, status, markdown);
+      }
+      document.getElementById('editor-overlay').classList.add('hidden');
+    } else {
+      Eddie.ui.savePlaybookEdit();
+    }
+  });
+
+  document.getElementById('editor-cancel-btn').addEventListener('click', function() {
+    document.getElementById('editor-overlay').classList.add('hidden');
+  });
+
+  document.getElementById('editor-close-btn').addEventListener('click', function() {
+    document.getElementById('editor-overlay').classList.add('hidden');
+  });
+
+  // Step editor panel
+  document.getElementById('step-editor-save').addEventListener('click', function() {
+    Eddie.ui.saveStepEdit();
+  });
+
+  document.getElementById('step-editor-cancel').addEventListener('click', function() {
+    Eddie.ui.closeStepEditor();
+  });
+
+  document.getElementById('step-editor-close').addEventListener('click', function() {
+    Eddie.ui.closeStepEditor();
+  });
+
+  // Add playbook button
+  document.getElementById('add-playbook-btn').addEventListener('click', function() {
+    Eddie.ui.showAddPlaybookModal();
+  });
+
+  // Check if API key needed on trainer tab
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (btn.dataset.tab === 'trainer' && !Eddie.storage.hasApiKey()) {
+        setTimeout(function() { Eddie.ui.showApiKeyModal(); }, 200);
+      }
+    });
+  });
+});
