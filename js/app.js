@@ -420,6 +420,7 @@ document.addEventListener('DOMContentLoaded', function() {
   Eddie.scenarios.initCustom();
   Eddie.docExport.init();
   Eddie.gdocsExport.init();
+  Eddie.stepDrag.init();
 
   // API key modal
   document.getElementById('api-key-confirm').addEventListener('click', function() {

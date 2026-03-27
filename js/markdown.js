@@ -153,19 +153,11 @@ Eddie.markdown = {
   renderStepCard: function(number, title, body, isFirst, stepIndex, totalSteps) {
     var openClass = isFirst ? ' open' : '';
     var idx = (typeof stepIndex === 'number') ? stepIndex : -1;
-    var total = (typeof totalSteps === 'number') ? totalSteps : 0;
-    var html = '<div class="step-card' + openClass + '" data-step-index="' + idx + '">';
+    var html = '<div class="step-card' + openClass + '" draggable="true" data-step-index="' + idx + '">';
     html += '<div class="step-header" onclick="Eddie.ui.toggleStep(this)">';
+    html += '<span class="step-drag-handle" title="Drag to reorder">&#9776;</span>';
     html += '<span class="step-number">' + this.escHtml(number) + '</span>';
     html += '<span class="step-title">' + this.escHtml(title) + '</span>';
-    html += '<span class="step-reorder">';
-    if (idx > 0) {
-      html += '<button class="step-move-btn" onclick="event.stopPropagation();Eddie.ui.moveStep(' + idx + ',-1)" title="Move up">&#9650;</button>';
-    }
-    if (idx < total - 1) {
-      html += '<button class="step-move-btn" onclick="event.stopPropagation();Eddie.ui.moveStep(' + idx + ',1)" title="Move down">&#9660;</button>';
-    }
-    html += '</span>';
     html += '<span class="step-chevron">▼</span>';
     html += '</div>';
     html += '<div class="step-body">';

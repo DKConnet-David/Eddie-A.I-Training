@@ -112,29 +112,32 @@
   color: var(--text-dark);
 }
 
-.step-reorder {
-  display: inline-flex;
-  gap: 2px;
-  margin-left: auto;
-  margin-right: 8px;
+.step-drag-handle {
+  cursor: grab;
+  color: var(--text-muted, #999);
+  font-size: 14px;
+  padding: 0 4px;
+  user-select: none;
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s;
 }
 
-.step-move-btn {
-  background: none;
-  border: 1px solid var(--card-border, #e0e0e0);
-  border-radius: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 10px;
-  padding: 2px 6px;
-  line-height: 1;
-  transition: background 0.15s, color 0.15s;
+.step-drag-handle:hover {
+  opacity: 1;
+  color: var(--accent, #008fc9);
 }
 
-.step-move-btn:hover {
-  background: var(--accent, #008fc9);
-  color: #fff;
-  border-color: var(--accent, #008fc9);
+.step-drag-handle:active {
+  cursor: grabbing;
+}
+
+.step-card.dragging {
+  opacity: 0.4;
+  border-style: dashed;
+}
+
+.step-card.drag-over {
+  border-top: 3px solid var(--accent, #008fc9);
 }
 
 .step-chevron {

@@ -94,6 +94,7 @@ Eddie.router = {
 
     panel.innerHTML = actions + rendered + addStepBtn;
     this.bindRouteLinks();
+    if (Eddie.stepDrag) Eddie.stepDrag.bind();
   },
 
   bindRouteLinks: function() {
