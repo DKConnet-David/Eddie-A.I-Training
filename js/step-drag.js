@@ -1,102 +1,176 @@
-// Drag-and-drop reordering for step cards
+// Mouse-based drag-and-drop reordering for step cards
 
 Eddie.stepDrag = {
+  dragging: false,
+  dragCard: null,
   dragIndex: null,
+  placeholder: null,
+  offsetY: 0,
+  startY: 0,
 
   init: function() {
     this.bind();
   },
 
-  // Bind drag events to all step cards — called after each render
   bind: function() {
-    var cards = document.querySelectorAll('#playbook-content .step-card[draggable]');
+    var handles = document.querySelectorAll('#playbook-content .step-drag-handle');
     var self = this;
 
-    cards.forEach(function(card) {
-      card.addEventListener('dragstart', function(e) { self.onDragStart(e, card); });
-      card.addEventListener('dragend', function(e) { self.onDragEnd(e, card); });
-      card.addEventListener('dragover', function(e) { self.onDragOver(e, card); });
-      card.addEventListener('dragleave', function(e) { self.onDragLeave(e, card); });
-      card.addEventListener('drop', function(e) { self.onDrop(e, card); });
+    handles.forEach(function(handle) {
+      handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        self.onMouseDown(e, handle);
+      });
     });
   },
 
-  onDragStart: function(e, card) {
-    // Only allow drag from the handle
-    var handle = card.querySelector('.step-drag-handle');
-    if (handle && !handle.contains(e.target)) {
-      e.preventDefault();
+  onMouseDown: function(e, handle) {
+    var card = handle.closest('.step-card');
+    if (!card) return;
+
+    this.dragIndex = parseInt(card.dataset.stepIndex, 10);
+    this.startY = e.clientY;
+    this.dragging = false;
+
+    var self = this;
+    var onMove = function(e) { self.onMouseMove(e, card); };
+    var onUp = function(e) {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      self.onMouseUp(e);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  },
+
+  onMouseMove: function(e, card) {
+    // Start dragging after 4px threshold
+    if (!this.dragging) {
+      if (Math.abs(e.clientY - this.startY) < 4) return;
+      this.startDrag(card, e);
+    }
+
+    // Move the floating card
+    this.dragCard.style.top = (e.clientY - this.offsetY) + 'px';
+
+    // Find which card we're hovering over
+    var cards = document.querySelectorAll('#playbook-content .step-card:not(.drag-clone)');
+    var self = this;
+
+    cards.forEach(function(c) { c.classList.remove('drag-over-above', 'drag-over-below'); });
+
+    var target = this.getDropTarget(e.clientY, cards);
+    if (target && target.card) {
+      var rect = target.card.getBoundingClientRect();
+      var mid = rect.top + rect.height / 2;
+      if (e.clientY < mid) {
+        target.card.classList.add('drag-over-above');
+      } else {
+        target.card.classList.add('drag-over-below');
+      }
+    }
+  },
+
+  startDrag: function(card, e) {
+    this.dragging = true;
+
+    var rect = card.getBoundingClientRect();
+    this.offsetY = e.clientY - rect.top;
+
+    // Create floating clone
+    this.dragCard = card.cloneNode(true);
+    this.dragCard.classList.add('drag-clone');
+    this.dragCard.style.cssText =
+      'position:fixed;left:' + rect.left + 'px;top:' + rect.top + 'px;' +
+      'width:' + rect.width + 'px;z-index:9999;pointer-events:none;' +
+      'opacity:0.85;box-shadow:0 8px 24px rgba(0,0,0,0.18);transform:scale(1.02);' +
+      'transition:none;border:2px solid var(--accent,#008fc9);border-radius:8px;background:#fff;';
+    document.body.appendChild(this.dragCard);
+
+    // Dim original
+    card.classList.add('dragging');
+    card.style.opacity = '0.25';
+  },
+
+  getDropTarget: function(clientY, cards) {
+    var closest = null;
+    var closestDist = Infinity;
+
+    cards.forEach(function(c) {
+      if (c.classList.contains('dragging')) return;
+      var rect = c.getBoundingClientRect();
+      var mid = rect.top + rect.height / 2;
+      var dist = Math.abs(clientY - mid);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = { card: c, index: parseInt(c.dataset.stepIndex, 10) };
+      }
+    });
+
+    return closest;
+  },
+
+  onMouseUp: function(e) {
+    if (!this.dragging) {
+      this.cleanup();
       return;
     }
 
-    this.dragIndex = parseInt(card.dataset.stepIndex, 10);
-    card.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', this.dragIndex);
-  },
+    // Find drop target
+    var cards = document.querySelectorAll('#playbook-content .step-card:not(.drag-clone)');
+    var target = this.getDropTarget(e.clientY, cards);
 
-  onDragEnd: function(e, card) {
-    card.classList.remove('dragging');
-    this.dragIndex = null;
-    // Clean up all drag-over indicators
-    document.querySelectorAll('.step-card.drag-over').forEach(function(c) {
-      c.classList.remove('drag-over');
-    });
-  },
+    this.cleanup();
 
-  onDragOver: function(e, card) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    if (!target || target.index === this.dragIndex) return;
 
-    var targetIndex = parseInt(card.dataset.stepIndex, 10);
-    if (targetIndex === this.dragIndex) return;
+    // Determine insert position based on cursor position relative to target midpoint
+    var rect = target.card.getBoundingClientRect();
+    var mid = rect.top + rect.height / 2;
+    var toIndex = target.index;
+    if (e.clientY > mid && toIndex < this.dragIndex) toIndex++;
+    if (e.clientY < mid && toIndex > this.dragIndex) toIndex--;
 
-    // Remove drag-over from others, add to this one
-    document.querySelectorAll('.step-card.drag-over').forEach(function(c) {
-      c.classList.remove('drag-over');
-    });
-    card.classList.add('drag-over');
-  },
+    if (toIndex === this.dragIndex) return;
 
-  onDragLeave: function(e, card) {
-    card.classList.remove('drag-over');
-  },
-
-  onDrop: function(e, card) {
-    e.preventDefault();
-    card.classList.remove('drag-over');
-
-    var fromIndex = this.dragIndex;
-    var toIndex = parseInt(card.dataset.stepIndex, 10);
-
-    if (fromIndex === null || fromIndex === toIndex) return;
-
-    // Perform the move
+    // Perform the reorder
     var id = Eddie.state.activePlaybook;
     var parts = Eddie.ui._getPlaybookParts(id);
-    if (!parts || fromIndex >= parts.steps.length || toIndex >= parts.steps.length) return;
+    if (!parts || this.dragIndex >= parts.steps.length) return;
 
-    // Remove the step from its old position
-    var moved = parts.steps.splice(fromIndex, 1)[0];
-
-    // Insert at new position
+    var moved = parts.steps.splice(this.dragIndex, 1)[0];
     parts.steps.splice(toIndex, 0, moved);
 
-    // Auto-renumber
     Eddie.ui.renumberSteps(parts);
 
-    // Close editor if open
     if (Eddie.ui._editingStep) Eddie.ui.closeStepEditor();
 
-    // Save and re-render
     Eddie.ui._saveAndRender(id, parts);
 
-    // Open the moved step at its new position
-    var cards = document.querySelectorAll('#playbook-content .step-card');
-    cards.forEach(function(c) {
+    // Open moved step at new position
+    var newCards = document.querySelectorAll('#playbook-content .step-card');
+    newCards.forEach(function(c) {
       if (parseInt(c.dataset.stepIndex, 10) === toIndex) {
         c.classList.add('open');
       }
+    });
+  },
+
+  cleanup: function() {
+    this.dragging = false;
+
+    // Remove clone
+    if (this.dragCard && this.dragCard.parentNode) {
+      this.dragCard.parentNode.removeChild(this.dragCard);
+    }
+    this.dragCard = null;
+
+    // Restore original cards
+    document.querySelectorAll('#playbook-content .step-card').forEach(function(c) {
+      c.classList.remove('dragging', 'drag-over-above', 'drag-over-below');
+      c.style.opacity = '';
     });
   }
 };

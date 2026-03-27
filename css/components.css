@@ -132,12 +132,18 @@
 }
 
 .step-card.dragging {
-  opacity: 0.4;
+  opacity: 0.25;
   border-style: dashed;
 }
 
-.step-card.drag-over {
+.step-card.drag-over-above {
   border-top: 3px solid var(--accent, #008fc9);
+  margin-top: -1px;
+}
+
+.step-card.drag-over-below {
+  border-bottom: 3px solid var(--accent, #008fc9);
+  margin-bottom: -1px;
 }
 
 .step-chevron {
