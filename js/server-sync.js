@@ -79,20 +79,24 @@ Eddie.serverSync = {
       if (xhr.status === 200) {
         var result = JSON.parse(xhr.responseText);
         if (result.saved && result.data) {
-          // Check if server data is newer or browser has no data
-          var localOverrides = Eddie.storage.getPlaybookOverrides();
-          var hasLocalData = Object.keys(localOverrides).length > 0;
+          // Always restore server data to keep browsers in sync
+          var serverJson = JSON.stringify(result.data);
+          var localJson = JSON.stringify(self.gatherData());
 
-          if (!hasLocalData) {
-            // No local data — restore from server silently
+          // Only reload if server data differs from local
+          if (serverJson !== localJson) {
             self.restoreData(result.data);
-            self.setStatus('info', 'Data restored from server.');
-            // Reload to apply
-            setTimeout(function() { location.reload(); }, 300);
-            return;
+
+            // Check if data actually changed after restore
+            var afterRestore = JSON.stringify(self.gatherData());
+            if (afterRestore !== localJson) {
+              self._lastSaveJson = afterRestore;
+              self.setStatus('info', 'Synced from server. Reloading...');
+              setTimeout(function() { location.reload(); }, 300);
+              return;
+            }
           }
 
-          // Store the server state as baseline for change detection
           self._lastSaveJson = JSON.stringify(self.gatherData());
           var date = new Date(result.data._savedAt);
           self.setStatus('info', 'Auto-save active. Last save: ' + date.toLocaleString());
