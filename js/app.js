@@ -435,6 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
   Eddie.docExport.init();
   Eddie.gdocsExport.init();
   Eddie.stepDrag.init();
+  Eddie.serverSync.init();
 
   // API key modal
   document.getElementById('api-key-confirm').addEventListener('click', function() {

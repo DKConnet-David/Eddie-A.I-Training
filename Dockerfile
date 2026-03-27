@@ -1,17 +1,19 @@
-FROM nginx:alpine
+FROM node:20-alpine
 
-# Remove default nginx config
-RUN rm /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy server
+COPY server.js .
 
-# Copy application files
-COPY index.html /usr/share/nginx/html/
-COPY css/ /usr/share/nginx/html/css/
-COPY js/ /usr/share/nginx/html/js/
-COPY playbooks/ /usr/share/nginx/html/playbooks/
+# Copy static files into public/
+COPY index.html public/
+COPY css/ public/css/
+COPY js/ public/js/
+COPY playbooks/ public/playbooks/
+
+# Create data directory
+RUN mkdir -p /data
 
 EXPOSE 3008
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]
