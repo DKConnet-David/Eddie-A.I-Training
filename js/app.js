@@ -96,6 +96,20 @@ Eddie.ui = {
     });
   },
 
+  // ── Expand / Collapse All ──
+  expandAllSteps: function() {
+    document.querySelectorAll('#playbook-content .step-card').forEach(function(c) {
+      c.classList.add('open');
+    });
+  },
+
+  collapseAllSteps: function() {
+    document.querySelectorAll('#playbook-content .step-card').forEach(function(c) {
+      c.classList.remove('open');
+    });
+    if (this._editingStep) this.closeStepEditor();
+  },
+
   // ── Step helpers ──
 
   // Get current playbook parts (frontmatter, pre, steps)

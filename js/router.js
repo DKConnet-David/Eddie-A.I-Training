@@ -82,6 +82,8 @@ Eddie.router = {
     // Add edit/management buttons
     var actions = '<div class="playbook-actions">';
     actions += '<button class="action-btn" onclick="Eddie.ui.editPlaybook(\'' + id + '\')">Edit Playbook</button>';
+    actions += '<button class="action-btn" onclick="Eddie.ui.expandAllSteps()">Expand All</button>';
+    actions += '<button class="action-btn" onclick="Eddie.ui.collapseAllSteps()">Collapse All</button>';
     if (overrides[id]) {
       actions += '<button class="action-btn danger" onclick="Eddie.ui.resetPlaybook(\'' + id + '\')">Reset to Default</button>';
     }
