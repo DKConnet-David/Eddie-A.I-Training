@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -115,10 +116,11 @@
         <div class="docsync-header">
           <h2>Export Playbooks</h2>
           <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">
-            Download all playbook content as a Word document for offline reference, printing, or sharing.
+            Download all playbook content as a Word document, or export directly to Google Docs.
           </p>
-          <div class="docsync-controls">
+          <div class="docsync-controls" style="display:flex;gap:10px;flex-wrap:wrap;">
             <button class="docsync-sync-btn" id="docsync-btn">Download .doc</button>
+            <button class="docsync-sync-btn" id="docsync-gdocs-btn" style="background:#4285f4;color:#fff;">Export to Google Docs</button>
           </div>
           <div class="docsync-status" id="docsync-status">
             <span class="status-dot" style="background:var(--text3)"></span>
@@ -220,6 +222,7 @@
 <script src="js/chat.js"></script>
 <script src="js/scenarios.js"></script>
 <script src="js/doc-sync.js"></script>
+<script src="js/gdocs-export.js"></script>
 <script src="js/app.js"></script>
 
 </body>

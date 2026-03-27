@@ -49,5 +49,13 @@ Eddie.storage = {
 
   setDocSyncUrl: function(url) {
     localStorage.setItem('eddie_docsync_url', url);
+  },
+
+  getGoogleClientId: function() {
+    return localStorage.getItem('eddie_google_client_id') || '';
+  },
+
+  setGoogleClientId: function(id) {
+    localStorage.setItem('eddie_google_client_id', id);
   }
 };
