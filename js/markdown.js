@@ -61,7 +61,7 @@ Eddie.markdown = {
     for (var i = 0; i < sections.steps.length; i++) {
       var step = sections.steps[i];
       var isFirst = (i === 0);
-      html += this.renderStepCard(step.number, step.title, step.body, isFirst, i);
+      html += this.renderStepCard(step.number, step.title, step.body, isFirst, i, sections.steps.length);
     }
 
     return html;
@@ -150,13 +150,22 @@ Eddie.markdown = {
   },
 
   // ── Step card HTML ──
-  renderStepCard: function(number, title, body, isFirst, stepIndex) {
+  renderStepCard: function(number, title, body, isFirst, stepIndex, totalSteps) {
     var openClass = isFirst ? ' open' : '';
     var idx = (typeof stepIndex === 'number') ? stepIndex : -1;
+    var total = (typeof totalSteps === 'number') ? totalSteps : 0;
     var html = '<div class="step-card' + openClass + '" data-step-index="' + idx + '">';
     html += '<div class="step-header" onclick="Eddie.ui.toggleStep(this)">';
     html += '<span class="step-number">' + this.escHtml(number) + '</span>';
     html += '<span class="step-title">' + this.escHtml(title) + '</span>';
+    html += '<span class="step-reorder">';
+    if (idx > 0) {
+      html += '<button class="step-move-btn" onclick="event.stopPropagation();Eddie.ui.moveStep(' + idx + ',-1)" title="Move up">&#9650;</button>';
+    }
+    if (idx < total - 1) {
+      html += '<button class="step-move-btn" onclick="event.stopPropagation();Eddie.ui.moveStep(' + idx + ',1)" title="Move down">&#9660;</button>';
+    }
+    html += '</span>';
     html += '<span class="step-chevron">▼</span>';
     html += '</div>';
     html += '<div class="step-body">';

@@ -96,32 +96,20 @@ Eddie.ui = {
     });
   },
 
-  // ── Add / Delete Steps ──
-  addStep: function() {
-    var id = Eddie.state.activePlaybook;
-    var pb = Eddie.playbooks[id];
-    if (!pb) return;
+  // ── Step helpers ──
 
+  // Get current playbook parts (frontmatter, pre, steps)
+  _getPlaybookParts: function(id) {
+    var pb = Eddie.playbooks[id];
+    if (!pb) return null;
     var overrides = Eddie.storage.getPlaybookOverrides();
     var md = (overrides[id] && overrides[id].markdown) ? overrides[id].markdown : pb.markdown;
-    var parts = Eddie.markdown.splitMarkdownSteps(md);
+    return Eddie.markdown.splitMarkdownSteps(md);
+  },
 
-    // Determine next step number
-    var nextNum = parts.steps.length + 1;
-    if (parts.steps.length > 0) {
-      var lastNum = parts.steps[parts.steps.length - 1].number;
-      var parsed = parseInt(lastNum, 10);
-      if (!isNaN(parsed)) nextNum = parsed + 1;
-    }
-
-    // Add new blank step
-    parts.steps.push({
-      number: String(nextNum),
-      title: 'New Step',
-      markdown: ':::eddie\nEnter message here.\n:::\n\n- Condition A \u2192 Step ' + (nextNum + 1) + '\n- Condition B \u2192 \u2705 RESOLVED'
-    });
-
-    // Save and re-render
+  // Save parts back and re-render
+  _saveAndRender: function(id, parts) {
+    var pb = Eddie.playbooks[id];
     var fullMd = Eddie.markdown.joinMarkdownSteps(parts);
     Eddie.storage.savePlaybookOverride(id, {
       title: pb.title,
@@ -129,8 +117,45 @@ Eddie.ui = {
       status: pb.status,
       markdown: fullMd
     });
-
     Eddie.router.renderPlaybook(id);
+  },
+
+  // Auto-renumber steps sequentially (1, 2, 3, ...) preserving sub-step letters (3A, 3B, etc.)
+  renumberSteps: function(parts) {
+    var num = 1;
+    for (var i = 0; i < parts.steps.length; i++) {
+      var step = parts.steps[i];
+      var oldNum = step.number;
+
+      // Check if this is a sub-step (ends with a letter like 3A, 3B)
+      var subMatch = oldNum.match(/^(\d+)([A-Za-z]+)$/);
+      if (subMatch) {
+        // Sub-step: use current parent number + letter
+        step.number = String(num - 1 > 0 ? num - 1 : num) + subMatch[2].toUpperCase();
+      } else {
+        step.number = String(num);
+        num++;
+      }
+    }
+    return parts;
+  },
+
+  // ── Add Step ──
+  addStep: function() {
+    var id = Eddie.state.activePlaybook;
+    var parts = this._getPlaybookParts(id);
+    if (!parts) return;
+
+    // Add new blank step at the end
+    parts.steps.push({
+      number: '0', // placeholder, will be renumbered
+      title: 'New Step',
+      markdown: ':::eddie\nEnter message here.\n:::\n\n- Condition A \u2192 Next Step\n- Condition B \u2192 \u2705 RESOLVED'
+    });
+
+    // Auto-renumber all steps
+    this.renumberSteps(parts);
+    this._saveAndRender(id, parts);
 
     // Open the new step in the editor
     var newIndex = parts.steps.length - 1;
@@ -146,6 +171,7 @@ Eddie.ui = {
     });
   },
 
+  // ── Delete Step ──
   deleteStep: function(stepIndex) {
     if (!this._editingStep) return;
     var es = this._editingStep;
@@ -154,18 +180,42 @@ Eddie.ui = {
     if (!confirm('Delete Step ' + step.number + ': ' + step.title + '?')) return;
 
     es.parts.steps.splice(stepIndex, 1);
-
-    var fullMd = Eddie.markdown.joinMarkdownSteps(es.parts);
-    var pb = Eddie.playbooks[es.playbookId];
-    Eddie.storage.savePlaybookOverride(es.playbookId, {
-      title: pb.title,
-      subtitle: pb.subtitle,
-      status: pb.status,
-      markdown: fullMd
-    });
+    this.renumberSteps(es.parts);
 
     this.closeStepEditor();
-    Eddie.router.renderPlaybook(es.playbookId);
+    this._saveAndRender(es.playbookId, es.parts);
+  },
+
+  // ── Move Step ──
+  moveStep: function(stepIndex, direction) {
+    var id = Eddie.state.activePlaybook;
+    var parts = this._getPlaybookParts(id);
+    if (!parts) return;
+
+    var newIndex = stepIndex + direction;
+    if (newIndex < 0 || newIndex >= parts.steps.length) return;
+
+    // Swap steps
+    var temp = parts.steps[stepIndex];
+    parts.steps[stepIndex] = parts.steps[newIndex];
+    parts.steps[newIndex] = temp;
+
+    // Auto-renumber to prevent conflicts
+    this.renumberSteps(parts);
+
+    // Close editor if open
+    if (this._editingStep) this.closeStepEditor();
+
+    this._saveAndRender(id, parts);
+
+    // Re-open the moved step at its new position
+    var cards = document.querySelectorAll('#playbook-content .step-card');
+    cards.forEach(function(c) {
+      if (parseInt(c.dataset.stepIndex, 10) === newIndex) {
+        c.classList.add('open');
+        c.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
   },
 
   // ── API Key Modal ──
