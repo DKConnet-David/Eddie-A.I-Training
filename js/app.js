@@ -96,18 +96,33 @@ Eddie.ui = {
     });
   },
 
-  // ── Expand / Collapse All ──
-  expandAllSteps: function() {
-    document.querySelectorAll('#playbook-content .step-card').forEach(function(c) {
-      c.classList.add('open');
-    });
-  },
+  // ── Expand / Collapse All (toggle) ──
+  _allExpanded: false,
 
-  collapseAllSteps: function() {
-    document.querySelectorAll('#playbook-content .step-card').forEach(function(c) {
-      c.classList.remove('open');
-    });
-    if (this._editingStep) this.closeStepEditor();
+  toggleAllSteps: function() {
+    var cards = document.querySelectorAll('#playbook-content .step-card');
+    var btn = document.getElementById('toggle-all-steps-btn');
+
+    if (this._allExpanded) {
+      cards.forEach(function(c) { c.classList.remove('open'); });
+      if (this._editingStep) this.closeStepEditor();
+      this._allExpanded = false;
+      if (btn) {
+        btn.innerHTML = '&#9660; Expand All';
+        btn.style.background = '#e6f9f0';
+        btn.style.color = '#0a8';
+        btn.style.borderColor = '#0a8';
+      }
+    } else {
+      cards.forEach(function(c) { c.classList.add('open'); });
+      this._allExpanded = true;
+      if (btn) {
+        btn.innerHTML = '&#9650; Collapse All';
+        btn.style.background = '#ebf5fb';
+        btn.style.color = '#0369a1';
+        btn.style.borderColor = '#0369a1';
+      }
+    }
   },
 
   // ── Step helpers ──
