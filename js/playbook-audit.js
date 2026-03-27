@@ -195,9 +195,78 @@ Eddie.playbookAudit = {
     return refs;
   },
 
+  // ── Apply fixes ──
+
+  applyBtn: function(label, onclick) {
+    return '<button onclick="' + onclick.replace(/"/g, '&quot;') + '" style="margin-top:6px;padding:4px 12px;font-size:11px;background:#0369a1;color:#fff;border:none;border-radius:4px;cursor:pointer;">' + label + '</button>';
+  },
+
+  // Add an Eddie says block to a step
+  applyAddEddie: function(playbookId, stepNumber) {
+    var block = '\n\n:::eddie\n[Enter what Eddie should say to the customer here.]\n:::';
+    this._appendToStep(playbookId, stepNumber, block);
+  },
+
+  // Add an internal note block to a step
+  applyAddInternal: function(playbookId, stepNumber) {
+    var block = '\n\n:::internal\n[Enter internal notes or instructions for agents here.]\n:::';
+    this._appendToStep(playbookId, stepNumber, block);
+  },
+
+  // Add a branch/resolution to a dead-end step
+  applyAddBranch: function(playbookId, stepNumber) {
+    var block = '\n\n- Condition A \u2192 Next Step\n- Condition B \u2192 \u2705 RESOLVED';
+    this._appendToStep(playbookId, stepNumber, block);
+  },
+
+  // Create a missing step
+  applyCreateStep: function(playbookId, stepNumber) {
+    var parts = Eddie.ui._getPlaybookParts(playbookId);
+    if (!parts) return;
+
+    parts.steps.push({
+      number: stepNumber,
+      title: 'New Step',
+      markdown: ':::eddie\n[Enter what Eddie should say here.]\n:::\n\n:::internal\n[Enter internal notes here.]\n:::\n\n- Condition A \u2192 Next Step\n- Condition B \u2192 \u2705 RESOLVED'
+    });
+
+    Eddie.ui._saveAndRender(playbookId, parts);
+    this._refreshAudit();
+  },
+
+  // Helper: append content to a step's markdown
+  _appendToStep: function(playbookId, stepNumber, content) {
+    var parts = Eddie.ui._getPlaybookParts(playbookId);
+    if (!parts) return;
+
+    for (var i = 0; i < parts.steps.length; i++) {
+      if (parts.steps[i].number.toUpperCase() === stepNumber.toUpperCase()) {
+        parts.steps[i].markdown = parts.steps[i].markdown.trimEnd() + content;
+        break;
+      }
+    }
+
+    Eddie.ui._saveAndRender(playbookId, parts);
+    this._refreshAudit();
+  },
+
+  // Re-run audit after applying a fix
+  _refreshAudit: function() {
+    var select = document.getElementById('audit-playbook-select');
+    if (select && select.value) {
+      var html = this.showAuditForPlaybook(select.value);
+      document.getElementById('audit-results').innerHTML = html;
+      var overlayResults = document.getElementById('audit-overlay-results');
+      if (overlayResults) overlayResults.innerHTML = html;
+    }
+  },
+
   // Format the audit report as readable HTML
   formatReport: function(report) {
     if (!report) return '<p>Could not analyse this playbook.</p>';
+
+    var pid = report.playbookId;
+    var esc = function(s) { return s.replace(/'/g, "\\'"); };
 
     var html = '';
     html += '<div style="margin-bottom:16px;">';
@@ -224,6 +293,9 @@ Eddie.playbookAudit = {
       report.errors.forEach(function(e) {
         html += '<div style="background:#fef2f2;border-left:3px solid #e53e3e;padding:8px 12px;border-radius:4px;margin-bottom:6px;font-size:13px;">';
         html += e.message;
+        if (e.type === 'missing_step') {
+          html += '<br>' + Eddie.playbookAudit.applyBtn('Create Step ' + e.step, "Eddie.playbookAudit.applyCreateStep('" + esc(pid) + "','" + esc(e.step) + "')");
+        }
         html += '</div>';
       });
       html += '</div>';
@@ -236,6 +308,9 @@ Eddie.playbookAudit = {
       report.warnings.forEach(function(w) {
         html += '<div style="background:#fef3e0;border-left:3px solid #b47a1a;padding:8px 12px;border-radius:4px;margin-bottom:6px;font-size:13px;">';
         html += w.message;
+        if (w.type === 'dead_end') {
+          html += '<br>' + Eddie.playbookAudit.applyBtn('Add Branches', "Eddie.playbookAudit.applyAddBranch('" + esc(pid) + "','" + esc(w.step) + "')");
+        }
         html += '</div>';
       });
       html += '</div>';
@@ -248,6 +323,11 @@ Eddie.playbookAudit = {
       report.suggestions.forEach(function(s) {
         html += '<div style="background:#ebf5fb;border-left:3px solid #0369a1;padding:8px 12px;border-radius:4px;margin-bottom:6px;font-size:13px;">';
         html += s.message;
+        if (s.type === 'no_eddie_block') {
+          html += '<br>' + Eddie.playbookAudit.applyBtn('Add Eddie Says Block', "Eddie.playbookAudit.applyAddEddie('" + esc(pid) + "','" + esc(s.step) + "')");
+        } else if (s.type === 'no_internal') {
+          html += '<br>' + Eddie.playbookAudit.applyBtn('Add Internal Note Block', "Eddie.playbookAudit.applyAddInternal('" + esc(pid) + "','" + esc(s.step) + "')");
+        }
         html += '</div>';
       });
       html += '</div>';
@@ -258,8 +338,8 @@ Eddie.playbookAudit = {
     html += '<h4 style="font-size:13px;margin-bottom:8px;color:var(--text-muted);">SYNTAX TO FIX COMMON ISSUES</h4>';
     html += '<div style="font-family:monospace;font-size:11px;color:var(--text-muted);line-height:1.8;background:var(--bg2,#f8f9fa);padding:10px 14px;border-radius:6px;">';
     html += 'Add Eddie message:<br><code>:::eddie</code><br><code>Your message here.</code><br><code>:::</code><br><br>';
-    html += 'Add branch to a step:<br><code>- Condition → Step 3</code><br><br>';
-    html += 'Add resolution:<br><code>- Issue fixed → ✅ RESOLVED</code><br><br>';
+    html += 'Add branch to a step:<br><code>- Condition \u2192 Step 3</code><br><br>';
+    html += 'Add resolution:<br><code>- Issue fixed \u2192 \u2705 RESOLVED</code><br><br>';
     html += 'Add internal note:<br><code>:::internal</code><br><code>Note for agents.</code><br><code>:::</code><br><br>';
     html += 'Add warning:<br><code>:::warn Important</code><br><code>Warning text.</code><br><code>:::</code>';
     html += '</div></div>';
