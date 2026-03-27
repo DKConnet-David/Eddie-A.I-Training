@@ -85,10 +85,19 @@ Eddie.ui = {
 
     document.getElementById('step-editor-panel').classList.remove('hidden');
 
-    // Highlight active step card
+    // Highlight active step card and scroll it into view
     document.querySelectorAll('#playbook-content .step-card').forEach(function(c) {
-      c.classList.toggle('editing', parseInt(c.dataset.stepIndex, 10) === stepIndex);
+      var isTarget = parseInt(c.dataset.stepIndex, 10) === stepIndex;
+      c.classList.toggle('editing', isTarget);
+      if (isTarget) {
+        setTimeout(function() {
+          c.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 50);
+      }
     });
+
+    // Scroll editor panel to top
+    document.getElementById('step-editor-panel').scrollTop = 0;
   },
 
   closeStepEditor: function(force) {
