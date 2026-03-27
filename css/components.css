@@ -129,6 +129,38 @@
   cursor: grabbing;
 }
 
+/* Sub-step group — indented with branch connector */
+.sub-step-group {
+  display: flex;
+  margin-left: 24px;
+  position: relative;
+}
+
+.sub-step-connector {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent, #008fc9);
+  border-radius: 3px;
+  opacity: 0.4;
+}
+
+.sub-step-cards {
+  flex: 1;
+  padding-left: 16px;
+}
+
+.sub-step-cards .step-card {
+  border-left: 2px solid var(--accent, #008fc9);
+}
+
+.sub-step-cards .step-number {
+  background: var(--accent, #008fc9);
+  color: #fff;
+}
+
 .step-card.dragging {
   opacity: 0.25;
   border-style: dashed;

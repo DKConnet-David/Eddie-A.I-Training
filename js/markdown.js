@@ -57,11 +57,33 @@ Eddie.markdown = {
       html += this.renderContent(sections.pre);
     }
 
-    // Render each step as a card
+    // Render each step as a card, grouping sub-steps
+    var inSubGroup = false;
     for (var i = 0; i < sections.steps.length; i++) {
       var step = sections.steps[i];
       var isFirst = (i === 0);
+      var isSub = /^\d+[A-Za-z]/.test(step.number);
+      var nextStep = sections.steps[i + 1];
+      var nextIsSub = nextStep && /^\d+[A-Za-z]/.test(nextStep.number);
+
+      // Open sub-step group wrapper
+      if (isSub && !inSubGroup) {
+        html += '<div class="sub-step-group">';
+        html += '<div class="sub-step-connector"></div>';
+        html += '<div class="sub-step-cards">';
+        inSubGroup = true;
+      }
+
       html += this.renderStepCard(step.number, step.title, step.body, isFirst, i, sections.steps.length);
+
+      // Close sub-step group wrapper
+      if (inSubGroup && !nextIsSub) {
+        html += '</div></div>';
+        inSubGroup = false;
+      }
+    }
+    if (inSubGroup) {
+      html += '</div></div>';
     }
 
     return html;
