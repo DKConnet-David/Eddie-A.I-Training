@@ -9,6 +9,20 @@ Eddie.gdocsExport = {
     if (btn) {
       btn.addEventListener('click', function() { Eddie.gdocsExport.startExport(); });
     }
+    var resetBtn = document.getElementById('docsync-gdocs-reset');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function() { Eddie.gdocsExport.resetAuth(); });
+    }
+  },
+
+  resetAuth: function() {
+    this.accessToken = null;
+    this.tokenClient = null;
+    Eddie.storage.setGoogleClientId('');
+    if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+      google.accounts.id.disableAutoSelect();
+    }
+    Eddie.docExport.setStatus('success', 'Google account reset. Click "Export to Google Docs" to sign in again.');
   },
 
   // Prompt for Client ID if not stored
