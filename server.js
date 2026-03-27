@@ -7,7 +7,7 @@ var path = require('path');
 var PORT = 3008;
 var DATA_DIR = '/data';
 var DATA_FILE = path.join(DATA_DIR, 'playbooks.json');
-var STATIC_ROOT = path.join(__dirname, 'public');
+var STATIC_ROOT = path.join(__dirname, 'dist');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {

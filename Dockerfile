@@ -1,15 +1,24 @@
+# ── Stage 1: Build ──
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+# ── Stage 2: Production ──
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy server
-COPY server.js .
+COPY package*.json ./
+RUN npm ci --omit=dev || npm install --omit=dev
 
-# Copy static files into public/
-COPY index.html public/
-COPY css/ public/css/
-COPY js/ public/js/
-COPY playbooks/ public/playbooks/
+COPY server.js .
+COPY --from=build /app/dist ./dist
 
 # Create data directory
 RUN mkdir -p /data
