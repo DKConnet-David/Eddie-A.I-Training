@@ -6,22 +6,7 @@ Eddie.ui = {
 
   toggleStep: function(headerEl) {
     var card = headerEl.parentElement;
-    var wasOpen = card.classList.contains('open');
-
-    // If opening a new step while editor has unsaved changes, check first
-    if (!wasOpen && this._editingStep) {
-      if (!this.checkUnsavedChanges()) return;
-    }
-
     card.classList.toggle('open');
-
-    // If opening a step, load it into the side editor
-    if (!wasOpen) {
-      var stepIndex = parseInt(card.dataset.stepIndex, 10);
-      if (!isNaN(stepIndex) && stepIndex >= 0) {
-        this.openStepEditor(stepIndex);
-      }
-    }
   },
 
   // ── Unsaved changes check ──
@@ -53,6 +38,11 @@ Eddie.ui = {
 
   // ── Step Editor ──
   openStepEditor: function(stepIndex) {
+    // Check unsaved changes before switching to a different step
+    if (this._editingStep && this._editingStep.stepIndex !== stepIndex) {
+      if (!this.checkUnsavedChanges()) return;
+    }
+
     var id = Eddie.state.activePlaybook;
     var pb = Eddie.playbooks[id];
     if (!pb) return;

@@ -180,6 +180,7 @@ Eddie.markdown = {
     html += '<span class="step-drag-handle" title="Drag to reorder">&#9776;</span>';
     html += '<span class="step-number">' + this.escHtml(number) + '</span>';
     html += '<span class="step-title">' + this.escHtml(title) + '</span>';
+    html += '<span class="step-edit-btn" onclick="event.stopPropagation();Eddie.ui.openStepEditor(' + idx + ')" title="Edit step">&#9998;</span>';
     html += '<span class="step-chevron" onclick="Eddie.ui.toggleStep(this.parentElement)" title="Expand / Collapse">▼</span>';
     html += '</div>';
     html += '<div class="step-body">';
