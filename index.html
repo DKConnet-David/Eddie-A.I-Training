@@ -104,6 +104,14 @@
         </div>
       </div>
       <aside class="trainer-sidebar">
+        <div class="audit-section" style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--card-border,#e0e0e0);">
+          <h3 style="margin-bottom:8px;">Playbook Audit</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Select a playbook to check for missing steps, dead ends, contradictions, and get improvement suggestions.</p>
+          <select id="audit-playbook-select" style="width:100%;padding:8px 10px;border:1px solid var(--card-border,#ddd);border-radius:6px;font-size:13px;background:var(--card,#fff);color:var(--text-dark,#333);margin-bottom:10px;cursor:pointer;">
+            <option value="">— Select a playbook —</option>
+          </select>
+          <div id="audit-results" style="max-height:400px;overflow-y:auto;"></div>
+        </div>
         <h3>Training Scenarios</h3>
         <div id="scenario-cards"></div>
         <div class="custom-scenario">
@@ -245,6 +253,7 @@
 <script src="js/chat.js"></script>
 <script src="js/scenarios.js"></script>
 <script src="js/doc-sync.js"></script>
+<script src="js/playbook-audit.js"></script>
 <script src="js/step-drag.js"></script>
 <script src="js/server-sync.js"></script>
 <script src="js/gdocs-export.js"></script>

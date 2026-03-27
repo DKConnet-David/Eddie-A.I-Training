@@ -505,6 +505,31 @@ document.addEventListener('DOMContentLoaded', function() {
   Eddie.stepDrag.init();
   Eddie.serverSync.init();
 
+  // Playbook audit — populate dropdown and bind
+  var auditSelect = document.getElementById('audit-playbook-select');
+  if (auditSelect) {
+    Eddie.playbookOrder.forEach(function(id) {
+      var pb = Eddie.playbooks[id];
+      if (!pb) return;
+      var label = id === 'master' ? 'Master Entry Point' :
+                  id === 'rules' ? 'Universal Rules' :
+                  'Playbook ' + id.toUpperCase() + ' — ' + pb.title;
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = label;
+      auditSelect.appendChild(opt);
+    });
+
+    auditSelect.addEventListener('change', function() {
+      var resultsEl = document.getElementById('audit-results');
+      if (!auditSelect.value) {
+        resultsEl.innerHTML = '';
+        return;
+      }
+      resultsEl.innerHTML = Eddie.playbookAudit.showAuditForPlaybook(auditSelect.value);
+    });
+  }
+
   // API key modal
   document.getElementById('api-key-confirm').addEventListener('click', function() {
     var key = document.getElementById('api-key-input').value.trim();
