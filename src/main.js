@@ -8,6 +8,17 @@ import './assets/css/layout.css'
 import './assets/css/components.css'
 
 const app = createApp(App)
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
 app.mount('#app')
+
+// Initialize stores after mount
+import { usePlaybookStore } from './stores/playbook.js'
+import { useServerSyncStore } from './stores/serverSync.js'
+
+const playbookStore = usePlaybookStore()
+playbookStore.init()
+
+const serverSyncStore = useServerSyncStore()
+serverSyncStore.init()

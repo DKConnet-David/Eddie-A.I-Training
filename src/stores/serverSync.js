@@ -103,18 +103,16 @@ export const useServerSyncStore = defineStore('serverSync', () => {
       const result = await res.json()
 
       if (result.saved && result.data) {
-        const serverJson = JSON.stringify(result.data)
-        const localJson = JSON.stringify(gatherData())
+        // Compare server overrides with local overrides (ignore _savedAt)
+        const serverOverrides = JSON.stringify(result.data.playbook_overrides || {})
+        const localOverrides = JSON.stringify(gatherData().playbook_overrides || {})
+        const serverCustom = JSON.stringify(result.data.custom_playbooks || {})
+        const localCustom = JSON.stringify(gatherData().custom_playbooks || {})
 
-        if (serverJson !== localJson) {
+        if (serverOverrides !== localOverrides || serverCustom !== localCustom) {
+          // Server has different data — restore it
           restoreData(result.data)
-
-          const afterRestore = JSON.stringify(gatherData())
-          if (afterRestore !== localJson) {
-            lastSaveJson.value = afterRestore
-            setStatus('info', 'Synced from server.')
-            return
-          }
+          setStatus('info', 'Synced from server.')
         }
 
         lastSaveJson.value = JSON.stringify(gatherData())
