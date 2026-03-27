@@ -122,25 +122,31 @@ Eddie.stepDrag = {
     var cards = document.querySelectorAll('#playbook-content .step-card:not(.drag-clone)');
     var target = this.getDropTarget(e.clientY, cards);
 
+    var fromIndex = this.dragIndex;
+
     this.cleanup();
 
-    if (!target || target.index === this.dragIndex) return;
+    if (!target || target.index === fromIndex) return;
 
-    // Determine insert position based on cursor position relative to target midpoint
+    // Determine desired position: above or below the target card
     var rect = target.card.getBoundingClientRect();
     var mid = rect.top + rect.height / 2;
-    var toIndex = target.index;
-    if (e.clientY > mid && toIndex < this.dragIndex) toIndex++;
-    if (e.clientY < mid && toIndex > this.dragIndex) toIndex--;
+    var dropBelow = e.clientY > mid;
 
-    if (toIndex === this.dragIndex) return;
+    var toIndex = target.index;
+    if (dropBelow) toIndex++;
+
+    // If dropping after original position, adjust for removal shift
+    if (toIndex > fromIndex) toIndex--;
+
+    if (toIndex === fromIndex) return;
 
     // Perform the reorder
     var id = Eddie.state.activePlaybook;
     var parts = Eddie.ui._getPlaybookParts(id);
-    if (!parts || this.dragIndex >= parts.steps.length) return;
+    if (!parts || fromIndex >= parts.steps.length) return;
 
-    var moved = parts.steps.splice(this.dragIndex, 1)[0];
+    var moved = parts.steps.splice(fromIndex, 1)[0];
     parts.steps.splice(toIndex, 0, moved);
 
     Eddie.ui.renumberSteps(parts);
