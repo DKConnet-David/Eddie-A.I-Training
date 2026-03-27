@@ -20,6 +20,7 @@ const route = useRoute()
 const tabs = [
   { label: 'Playbooks', route: '/playbooks/master' },
   { label: 'Audit', route: '/audit' },
+  { label: 'Syntax', route: '/syntax' },
   { label: 'AI Trainer', route: '/trainer' },
   { label: 'Export', route: '/export' },
 ]

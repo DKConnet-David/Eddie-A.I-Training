@@ -35,6 +35,16 @@
 //
 //   Frontmatter between --- markers for metadata
 
+// -- Configurable block types --
+let _blockTypesMap = null
+
+export function configureBlockTypes(types) {
+  _blockTypesMap = {}
+  for (let i = 0; i < types.length; i++) {
+    _blockTypesMap[types[i].id] = types[i]
+  }
+}
+
 // -- Main render: markdown string -> full playbook HTML --
 export function render(text, meta) {
   meta = meta || {};
@@ -199,7 +209,7 @@ export function renderContent(text) {
     const line = lines[i];
 
     // Fenced block: :::type [label]
-    const blockMatch = line.match(/^:::(eddie|internal|warn|ok)\s*(.*)/);
+    const blockMatch = line.match(/^:::(\w+)\s*(.*)/);
     if (blockMatch) {
       const type = blockMatch[1];
       const label = blockMatch[2].trim();
@@ -260,7 +270,7 @@ export function renderContent(text) {
     const paraLines = [];
     while (i < lines.length &&
            lines[i].trim() !== '' &&
-           !lines[i].match(/^:::(eddie|internal|warn|ok)/) &&
+           !lines[i].match(/^:::(\w+)/) &&
            !lines[i].match(/^\s*-\s+.+\u2192.+/) &&
            !lines[i].trim().startsWith('|') &&
            !lines[i].match(/^##/) &&
@@ -279,18 +289,31 @@ export function renderContent(text) {
 
 // -- Render a custom block --
 export function renderBlock(type, label, content) {
-  const defaults = {
-    eddie: { cls: 'msg-block', labelCls: 'msg-block-label', defaultLabel: 'Eddie says' },
-    internal: { cls: 'internal-block', labelCls: 'internal-block-label', defaultLabel: 'Internal note' },
-    warn: { cls: 'warn-block', labelCls: 'warn-block-label', defaultLabel: 'Never' },
-    ok: { cls: 'ok-block', labelCls: 'ok-block-label', defaultLabel: 'Resolution' }
+  // Hardcoded fallback defaults (used when configureBlockTypes has not been called)
+  const fallbackDefaults = {
+    eddie: { label: 'Eddie says', borderColor: '#008fc9', bgColor: '#f0f7fb', labelColor: '#0369a1' },
+    internal: { label: 'Internal note', borderColor: '#999', bgColor: '#f5f5f5', labelColor: '#666' },
+    warn: { label: 'Never', borderColor: '#e53e3e', bgColor: '#fef2f2', labelColor: '#e53e3e' },
+    ok: { label: 'Resolution', borderColor: '#008fc9', bgColor: '#f0f7fb', labelColor: '#0369a1' }
   };
 
-  const cfg = defaults[type] || defaults.internal;
-  const displayLabel = label || cfg.defaultLabel;
+  // Resolve config: dynamic map first, then fallback defaults
+  let cfg = null;
+  if (_blockTypesMap && _blockTypesMap[type]) {
+    cfg = _blockTypesMap[type];
+  } else if (fallbackDefaults[type]) {
+    cfg = fallbackDefaults[type];
+  } else {
+    // Unknown block type: use internal style as fallback
+    cfg = _blockTypesMap && _blockTypesMap['internal']
+      ? _blockTypesMap['internal']
+      : fallbackDefaults.internal;
+  }
 
-  let html = '<div class="' + cfg.cls + '">';
-  html += '<div class="' + cfg.labelCls + '">' + escHtml(displayLabel) + '</div>';
+  const displayLabel = label || cfg.label;
+
+  let html = '<div style="background:' + cfg.bgColor + ';border-left:3px solid ' + cfg.borderColor + ';padding:8pt 12pt;margin:8pt 0;border-radius:0 4px 4px 0;">';
+  html += '<div style="font-size:8pt;color:' + cfg.labelColor + ';text-transform:uppercase;letter-spacing:0.5pt;margin-bottom:3pt;font-weight:bold;font-family:var(--font-mono);">' + escHtml(displayLabel) + '</div>';
   html += renderBlockContent(content);
   html += '</div>';
   return html;

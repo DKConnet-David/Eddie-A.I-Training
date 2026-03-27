@@ -34,6 +34,7 @@ export const useServerSyncStore = defineStore('serverSync', () => {
       google_client_id: authStore.googleClientId || null,
       gdocs_last_id: localStorage.getItem('eddie_gdocs_last_id') || null,
       gdocs_last_name: localStorage.getItem('eddie_gdocs_last_name') || null,
+      syntax_blocks: JSON.parse(localStorage.getItem('eddie_syntax_blocks') || '[]'),
     }
   }
 
@@ -68,6 +69,9 @@ export const useServerSyncStore = defineStore('serverSync', () => {
     }
     if (data.gdocs_last_name) {
       localStorage.setItem('eddie_gdocs_last_name', data.gdocs_last_name)
+    }
+    if (data.syntax_blocks) {
+      localStorage.setItem('eddie_syntax_blocks', JSON.stringify(data.syntax_blocks))
     }
 
     // Re-initialize playbook store so it picks up restored overrides/customs

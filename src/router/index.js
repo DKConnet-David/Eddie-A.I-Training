@@ -3,6 +3,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 const PlaybooksView = () => import('../views/PlaybooksView.vue')
 const AuditView = () => import('../views/AuditView.vue')
 const TrainerView = () => import('../views/TrainerView.vue')
+const SyntaxView = () => import('../views/SyntaxView.vue')
 const ExportView = () => import('../views/ExportView.vue')
 
 const routes = [
@@ -19,6 +20,11 @@ const routes = [
     path: '/audit',
     name: 'Audit',
     component: AuditView,
+  },
+  {
+    path: '/syntax',
+    name: 'Syntax',
+    component: SyntaxView,
   },
   {
     path: '/trainer',
