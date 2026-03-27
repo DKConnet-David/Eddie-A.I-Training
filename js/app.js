@@ -8,6 +8,11 @@ Eddie.ui = {
     var card = headerEl.parentElement;
     var wasOpen = card.classList.contains('open');
 
+    // If opening a new step while editor has unsaved changes, check first
+    if (!wasOpen && this._editingStep) {
+      if (!this.checkUnsavedChanges()) return;
+    }
+
     card.classList.toggle('open');
 
     // If opening a step, load it into the side editor
@@ -17,6 +22,33 @@ Eddie.ui = {
         this.openStepEditor(stepIndex);
       }
     }
+  },
+
+  // ── Unsaved changes check ──
+  _originalEditorValues: null,
+
+  hasUnsavedChanges: function() {
+    if (!this._editingStep || !this._originalEditorValues) return false;
+    var orig = this._originalEditorValues;
+    var currNumber = document.getElementById('step-editor-number').value;
+    var currTitle = document.getElementById('step-editor-step-title').value;
+    var currContent = document.getElementById('step-editor-content').value;
+    return currNumber !== orig.number || currTitle !== orig.title || currContent !== orig.markdown;
+  },
+
+  // Returns true if safe to proceed (no changes, or user chose to discard/save)
+  checkUnsavedChanges: function() {
+    if (!this.hasUnsavedChanges()) return true;
+
+    var step = this._editingStep.parts.steps[this._editingStep.stepIndex];
+    var choice = confirm(
+      'You have unsaved changes to Step ' + step.number + ': ' + step.title + '.\n\n' +
+      'Click OK to save your changes, or Cancel to discard them.'
+    );
+    if (choice) {
+      this.saveStepEdit();
+    }
+    return true;
   },
 
   // ── Step Editor ──
@@ -39,6 +71,13 @@ Eddie.ui = {
       parts: parts
     };
 
+    // Store original values to detect changes
+    this._originalEditorValues = {
+      number: step.number,
+      title: step.title,
+      markdown: step.markdown
+    };
+
     document.getElementById('step-editor-title').textContent = 'Step ' + step.number;
     document.getElementById('step-editor-number').value = step.number;
     document.getElementById('step-editor-step-title').value = step.title;
@@ -52,8 +91,12 @@ Eddie.ui = {
     });
   },
 
-  closeStepEditor: function() {
+  closeStepEditor: function(force) {
+    if (!force && this.hasUnsavedChanges()) {
+      if (!this.checkUnsavedChanges()) return;
+    }
     this._editingStep = null;
+    this._originalEditorValues = null;
     document.getElementById('step-editor-panel').classList.add('hidden');
     document.querySelectorAll('#playbook-content .step-card.editing').forEach(function(c) {
       c.classList.remove('editing');
@@ -83,8 +126,9 @@ Eddie.ui = {
       markdown: fullMd
     });
 
-    // Re-render the playbook
-    this.closeStepEditor();
+    // Clear unsaved tracking and re-render
+    this._originalEditorValues = null;
+    this.closeStepEditor(true);
     Eddie.router.renderPlaybook(es.playbookId);
 
     // Re-open the step that was just edited

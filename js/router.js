@@ -45,12 +45,17 @@ Eddie.router = {
   },
 
   navigatePlaybook: function(id) {
+    // Check for unsaved changes before switching playbooks
+    if (Eddie.ui._editingStep && Eddie.ui.hasUnsavedChanges()) {
+      if (!Eddie.ui.checkUnsavedChanges()) return;
+    }
+
     this.switchTab('playbooks');
     Eddie.state.activePlaybook = id;
     location.hash = 'playbook/' + id;
 
     // Close step editor when changing playbook
-    if (Eddie.ui.closeStepEditor) Eddie.ui.closeStepEditor();
+    if (Eddie.ui.closeStepEditor) Eddie.ui.closeStepEditor(true);
 
     document.querySelectorAll('#sidebar-nav .nav-item').forEach(function(item) {
       item.classList.toggle('active', item.dataset.route === id);
