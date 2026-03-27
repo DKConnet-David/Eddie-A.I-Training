@@ -154,11 +154,11 @@ Eddie.markdown = {
     var openClass = isFirst ? ' open' : '';
     var idx = (typeof stepIndex === 'number') ? stepIndex : -1;
     var html = '<div class="step-card' + openClass + '" data-step-index="' + idx + '">';
-    html += '<div class="step-header" onclick="Eddie.ui.toggleStep(this)">';
+    html += '<div class="step-header">';
     html += '<span class="step-drag-handle" title="Drag to reorder">&#9776;</span>';
     html += '<span class="step-number">' + this.escHtml(number) + '</span>';
     html += '<span class="step-title">' + this.escHtml(title) + '</span>';
-    html += '<span class="step-chevron">▼</span>';
+    html += '<span class="step-chevron" onclick="Eddie.ui.toggleStep(this.parentElement)" title="Expand / Collapse">▼</span>';
     html += '</div>';
     html += '<div class="step-body">';
     html += this.renderContent(body.trim());
