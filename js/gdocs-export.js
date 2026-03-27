@@ -82,7 +82,7 @@ Eddie.gdocsExport = {
     if (this.accessToken) {
       this.uploadToGoogleDocs();
     } else {
-      this.tokenClient.requestAccessToken({ prompt: '' });
+      this.tokenClient.requestAccessToken({ prompt: 'select_account' });
     }
   },
 
@@ -174,7 +174,7 @@ Eddie.gdocsExport = {
       } else if (xhr.status === 401) {
         // Token expired — clear and retry
         Eddie.gdocsExport.accessToken = null;
-        Eddie.gdocsExport.tokenClient.requestAccessToken({ prompt: '' });
+        Eddie.gdocsExport.tokenClient.requestAccessToken({ prompt: 'select_account' });
       } else {
         var errMsg = 'Upload failed (HTTP ' + xhr.status + ')';
         try { errMsg = JSON.parse(xhr.responseText).error.message; } catch(e) {}
