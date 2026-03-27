@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { usePlaybookStore } from '@/stores/playbook.js'
 import { audit } from '@/lib/playbookAudit.js'
 import AuditResults from '@/components/audit/AuditResults.vue'
@@ -72,6 +72,9 @@ const playbookStore = usePlaybookStore()
 
 const selectedId = ref('')
 const report = ref(null)
+
+// Track overrides so we can detect when playbook data changes (e.g. after Apply)
+const overridesVersion = computed(() => JSON.stringify(playbookStore.overrides))
 
 function playbookLabel(id) {
   const pb = playbookStore.playbooks[id]
@@ -97,7 +100,8 @@ function runAudit() {
   report.value = audit(pb, md)
 }
 
-watch(selectedId, () => {
+// Re-run audit when playbook selection changes OR when playbook data changes
+watch([selectedId, overridesVersion], () => {
   runAudit()
 })
 </script>

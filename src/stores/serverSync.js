@@ -32,6 +32,7 @@ export const useServerSyncStore = defineStore('serverSync', () => {
       custom_playbooks: playbookStore.customPlaybooks,
       docsync_url: localStorage.getItem('eddie_docsync_url') || null,
       google_client_id: authStore.googleClientId || null,
+      api_key: authStore.apiKey || null,
       gdocs_last_id: localStorage.getItem('eddie_gdocs_last_id') || null,
       gdocs_last_name: localStorage.getItem('eddie_gdocs_last_name') || null,
       syntax_blocks: JSON.parse(localStorage.getItem('eddie_syntax_blocks') || '[]'),
@@ -63,6 +64,10 @@ export const useServerSyncStore = defineStore('serverSync', () => {
     if (data.google_client_id) {
       localStorage.setItem('eddie_google_client_id', data.google_client_id)
       authStore.googleClientId = data.google_client_id
+    }
+    if (data.api_key) {
+      localStorage.setItem('eddie_api_key', data.api_key)
+      authStore.apiKey = data.api_key
     }
     if (data.gdocs_last_id) {
       localStorage.setItem('eddie_gdocs_last_id', data.gdocs_last_id)

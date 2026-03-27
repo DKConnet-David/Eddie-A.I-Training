@@ -3,13 +3,14 @@ import { ref } from 'vue'
 
 export const useAuthStore = defineStore('auth', () => {
   // ── State ──
-  const apiKey = ref(sessionStorage.getItem('eddie_api_key') || '')
+  // API key now in localStorage (persists across sessions and syncs to server)
+  const apiKey = ref(localStorage.getItem('eddie_api_key') || '')
   const googleClientId = ref(localStorage.getItem('eddie_google_client_id') || '')
 
   // ── Actions ──
   function setApiKey(key) {
     apiKey.value = key
-    sessionStorage.setItem('eddie_api_key', key)
+    localStorage.setItem('eddie_api_key', key)
   }
 
   function hasApiKey() {
@@ -18,7 +19,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function clearApiKey() {
     apiKey.value = ''
-    sessionStorage.removeItem('eddie_api_key')
+    localStorage.removeItem('eddie_api_key')
   }
 
   function setGoogleClientId(id) {
