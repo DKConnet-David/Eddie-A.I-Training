@@ -522,11 +522,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     auditSelect.addEventListener('change', function() {
       var resultsEl = document.getElementById('audit-results');
+      var overlayResults = document.getElementById('audit-overlay-results');
       if (!auditSelect.value) {
         resultsEl.innerHTML = '';
+        overlayResults.innerHTML = '';
         return;
       }
-      resultsEl.innerHTML = Eddie.playbookAudit.showAuditForPlaybook(auditSelect.value);
+      var html = Eddie.playbookAudit.showAuditForPlaybook(auditSelect.value);
+      resultsEl.innerHTML = html;
+      overlayResults.innerHTML = html;
+    });
+
+    // Expand button — open full overlay
+    document.getElementById('audit-expand-btn').addEventListener('click', function() {
+      var overlay = document.getElementById('audit-overlay');
+      var overlayResults = document.getElementById('audit-overlay-results');
+      if (auditSelect.value) {
+        overlayResults.innerHTML = Eddie.playbookAudit.showAuditForPlaybook(auditSelect.value);
+      } else {
+        overlayResults.innerHTML = '<p style="color:var(--text-muted);">Select a playbook first.</p>';
+      }
+      overlay.classList.remove('hidden');
+      overlay.style.display = 'flex';
+    });
+
+    document.getElementById('audit-overlay-close').addEventListener('click', function() {
+      var overlay = document.getElementById('audit-overlay');
+      overlay.classList.add('hidden');
+      overlay.style.display = 'none';
+    });
+
+    document.getElementById('audit-overlay').addEventListener('click', function(e) {
+      if (e.target === this) {
+        this.classList.add('hidden');
+        this.style.display = 'none';
+      }
     });
   }
 
