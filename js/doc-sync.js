@@ -22,12 +22,14 @@ Eddie.docExport = {
   buildDocument: function() {
     var html = '';
 
+    var overrides = Eddie.storage.getPlaybookOverrides();
     Eddie.playbookOrder.forEach(function(id) {
       var pb = Eddie.playbooks[id];
       if (!pb) return;
-      if (pb.status !== 'active') return;
+      // Check override status first, then playbook status
+      var status = (overrides[id] && overrides[id].status) ? overrides[id].status : pb.status;
+      if (status !== 'active') return;
 
-      var overrides = Eddie.storage.getPlaybookOverrides();
       var md = (overrides[id] && overrides[id].markdown) ? overrides[id].markdown : pb.markdown;
       if (!md) return;
 
@@ -50,9 +52,12 @@ Eddie.docExport = {
     var body = document.getElementById('docsync-body');
     if (!body) return;
 
+    var pvOverrides = Eddie.storage.getPlaybookOverrides();
     var activePlaybooks = Eddie.playbookOrder.filter(function(id) {
       var pb = Eddie.playbooks[id];
-      return pb && pb.status === 'active';
+      if (!pb) return false;
+      var status = (pvOverrides[id] && pvOverrides[id].status) ? pvOverrides[id].status : pb.status;
+      return status === 'active';
     });
     var count = activePlaybooks.length;
     var names = activePlaybooks.map(function(id) {
