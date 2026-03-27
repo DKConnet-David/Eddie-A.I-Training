@@ -1,6 +1,10 @@
 // Server-side save/load for playbook data persistence
+// Auto-saves on every edit, auto-loads on startup
 
 Eddie.serverSync = {
+  _saveTimer: null,
+  _lastSaveJson: null,
+
   init: function() {
     var saveBtn = document.getElementById('server-save-btn');
     var loadBtn = document.getElementById('server-load-btn');
@@ -12,8 +16,11 @@ Eddie.serverSync = {
       loadBtn.addEventListener('click', function() { Eddie.serverSync.loadFromServer(); });
     }
 
-    // Check server status on load
-    this.checkStatus();
+    // Auto-load from server on startup
+    this.autoLoad();
+
+    // Watch for localStorage changes to auto-save
+    this.watchForChanges();
   },
 
   // Gather all localStorage data that needs persisting
@@ -63,32 +70,79 @@ Eddie.serverSync = {
     el.innerHTML = '<span style="color:' + color + '">' + message + '</span>';
   },
 
-  checkStatus: function() {
+  // ── Auto-load on startup ──
+  autoLoad: function() {
     var self = this;
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/status');
+    xhr.open('GET', '/api/load');
     xhr.onload = function() {
       if (xhr.status === 200) {
         var result = JSON.parse(xhr.responseText);
-        if (result.hasSave && result.savedAt) {
-          var date = new Date(result.savedAt);
-          self.setStatus('info', 'Last server save: ' + date.toLocaleString());
+        if (result.saved && result.data) {
+          // Check if server data is newer or browser has no data
+          var localOverrides = Eddie.storage.getPlaybookOverrides();
+          var hasLocalData = Object.keys(localOverrides).length > 0;
+
+          if (!hasLocalData) {
+            // No local data — restore from server silently
+            self.restoreData(result.data);
+            self.setStatus('info', 'Data restored from server.');
+            // Reload to apply
+            setTimeout(function() { location.reload(); }, 300);
+            return;
+          }
+
+          // Store the server state as baseline for change detection
+          self._lastSaveJson = JSON.stringify(self.gatherData());
+          var date = new Date(result.data._savedAt);
+          self.setStatus('info', 'Auto-save active. Last save: ' + date.toLocaleString());
         } else {
-          self.setStatus('info', 'No server save found. Click "Save to Server" to create one.');
+          self._lastSaveJson = JSON.stringify(self.gatherData());
+          self.setStatus('info', 'Auto-save active. No previous save found.');
         }
       }
     };
     xhr.onerror = function() {
-      self.setStatus('error', 'Cannot reach server API.');
+      self.setStatus('error', 'Cannot reach server — auto-save unavailable.');
     };
     xhr.send();
   },
 
-  saveToServer: function() {
+  // ── Watch for changes and auto-save ──
+  watchForChanges: function() {
     var self = this;
-    self.setStatus('saving', 'Saving to server...');
 
+    // Override localStorage.setItem to detect changes
+    var originalSetItem = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function(key, value) {
+      originalSetItem(key, value);
+      // Only auto-save for eddie_ keys
+      if (key.indexOf('eddie_') === 0) {
+        self.scheduleAutoSave();
+      }
+    };
+  },
+
+  scheduleAutoSave: function() {
+    var self = this;
+    // Debounce — wait 2 seconds after last change before saving
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(function() {
+      self.autoSave();
+    }, 2000);
+  },
+
+  autoSave: function() {
     var data = this.gatherData();
+    var json = JSON.stringify(data);
+
+    // Skip if nothing changed
+    if (json === this._lastSaveJson) return;
+
+    this._lastSaveJson = json;
+    this.setStatus('saving', 'Auto-saving...');
+
+    var self = this;
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/save');
     xhr.setRequestHeader('Content-Type', 'application/json');
@@ -97,19 +151,26 @@ Eddie.serverSync = {
       if (xhr.status === 200) {
         var result = JSON.parse(xhr.responseText);
         var date = new Date(result.savedAt);
-        self.setStatus('success', 'Saved to server at ' + date.toLocaleString());
+        self.setStatus('success', 'Auto-saved at ' + date.toLocaleTimeString());
       } else {
-        self.setStatus('error', 'Save failed: ' + xhr.statusText);
+        self.setStatus('error', 'Auto-save failed: ' + xhr.statusText);
       }
     };
 
     xhr.onerror = function() {
-      self.setStatus('error', 'Network error — could not save.');
+      self.setStatus('error', 'Auto-save failed — network error.');
     };
 
-    xhr.send(JSON.stringify(data));
+    xhr.send(json);
   },
 
+  // ── Manual save ──
+  saveToServer: function() {
+    this._lastSaveJson = null; // Force save even if no detected changes
+    this.autoSave();
+  },
+
+  // ── Manual load ──
   loadFromServer: function() {
     var self = this;
     self.setStatus('saving', 'Loading from server...');
