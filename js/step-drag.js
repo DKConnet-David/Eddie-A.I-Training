@@ -141,10 +141,18 @@ Eddie.stepDrag = {
 
     if (toIndex === fromIndex) return;
 
-    // Perform the reorder
+    // Get step details for confirmation
     var id = Eddie.state.activePlaybook;
     var parts = Eddie.ui._getPlaybookParts(id);
     if (!parts || fromIndex >= parts.steps.length) return;
+
+    var step = parts.steps[fromIndex];
+    var newNum = toIndex + 1;
+    var confirmed = confirm(
+      'Move "Step ' + step.number + ': ' + step.title + '" to position ' + newNum + '?\n\n' +
+      'All steps will be renumbered automatically.'
+    );
+    if (!confirmed) return;
 
     var moved = parts.steps.splice(fromIndex, 1)[0];
     parts.steps.splice(toIndex, 0, moved);
