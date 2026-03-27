@@ -96,6 +96,78 @@ Eddie.ui = {
     });
   },
 
+  // ── Add / Delete Steps ──
+  addStep: function() {
+    var id = Eddie.state.activePlaybook;
+    var pb = Eddie.playbooks[id];
+    if (!pb) return;
+
+    var overrides = Eddie.storage.getPlaybookOverrides();
+    var md = (overrides[id] && overrides[id].markdown) ? overrides[id].markdown : pb.markdown;
+    var parts = Eddie.markdown.splitMarkdownSteps(md);
+
+    // Determine next step number
+    var nextNum = parts.steps.length + 1;
+    if (parts.steps.length > 0) {
+      var lastNum = parts.steps[parts.steps.length - 1].number;
+      var parsed = parseInt(lastNum, 10);
+      if (!isNaN(parsed)) nextNum = parsed + 1;
+    }
+
+    // Add new blank step
+    parts.steps.push({
+      number: String(nextNum),
+      title: 'New Step',
+      markdown: ':::eddie\nEnter message here.\n:::\n\n- Condition A \u2192 Step ' + (nextNum + 1) + '\n- Condition B \u2192 \u2705 RESOLVED'
+    });
+
+    // Save and re-render
+    var fullMd = Eddie.markdown.joinMarkdownSteps(parts);
+    Eddie.storage.savePlaybookOverride(id, {
+      title: pb.title,
+      subtitle: pb.subtitle,
+      status: pb.status,
+      markdown: fullMd
+    });
+
+    Eddie.router.renderPlaybook(id);
+
+    // Open the new step in the editor
+    var newIndex = parts.steps.length - 1;
+    this.openStepEditor(newIndex);
+
+    // Scroll to and open the new step card
+    var cards = document.querySelectorAll('#playbook-content .step-card');
+    cards.forEach(function(c) {
+      if (parseInt(c.dataset.stepIndex, 10) === newIndex) {
+        c.classList.add('open');
+        c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  },
+
+  deleteStep: function(stepIndex) {
+    if (!this._editingStep) return;
+    var es = this._editingStep;
+
+    var step = es.parts.steps[stepIndex];
+    if (!confirm('Delete Step ' + step.number + ': ' + step.title + '?')) return;
+
+    es.parts.steps.splice(stepIndex, 1);
+
+    var fullMd = Eddie.markdown.joinMarkdownSteps(es.parts);
+    var pb = Eddie.playbooks[es.playbookId];
+    Eddie.storage.savePlaybookOverride(es.playbookId, {
+      title: pb.title,
+      subtitle: pb.subtitle,
+      status: pb.status,
+      markdown: fullMd
+    });
+
+    this.closeStepEditor();
+    Eddie.router.renderPlaybook(es.playbookId);
+  },
+
   // ── API Key Modal ──
   showApiKeyModal: function() {
     document.getElementById('api-key-modal').classList.remove('hidden');
@@ -350,6 +422,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById('step-editor-close').addEventListener('click', function() {
     Eddie.ui.closeStepEditor();
+  });
+
+  document.getElementById('step-editor-delete').addEventListener('click', function() {
+    if (Eddie.ui._editingStep) {
+      Eddie.ui.deleteStep(Eddie.ui._editingStep.stepIndex);
+    }
   });
 
   // Add playbook button

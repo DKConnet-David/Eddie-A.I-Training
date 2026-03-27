@@ -82,9 +82,12 @@
 **bold** *italic* → formatting</div>
           </details>
         </div>
-        <div class="step-editor-footer">
-          <button class="editor-cancel-btn" id="step-editor-cancel">Cancel</button>
-          <button class="editor-save-btn" id="step-editor-save">Save Step</button>
+        <div class="step-editor-footer" style="display:flex;justify-content:space-between;align-items:center;">
+          <button id="step-editor-delete" style="background:none;border:none;color:var(--error,#e53e3e);cursor:pointer;font-size:12px;text-decoration:underline;padding:4px;">Delete Step</button>
+          <div>
+            <button class="editor-cancel-btn" id="step-editor-cancel">Cancel</button>
+            <button class="editor-save-btn" id="step-editor-save">Save Step</button>
+          </div>
         </div>
       </aside>
     </div>

@@ -87,7 +87,12 @@ Eddie.router = {
     }
     actions += '</div>';
 
-    panel.innerHTML = actions + rendered;
+    // Add step button after all step cards
+    var addStepBtn = '<div style="text-align:center;margin:20px 0;">' +
+      '<button class="action-btn" onclick="Eddie.ui.addStep()" style="padding:8px 20px;font-size:13px;">' +
+      '+ Add Step</button></div>';
+
+    panel.innerHTML = actions + rendered + addStepBtn;
     this.bindRouteLinks();
   },
 
