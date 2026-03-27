@@ -123,6 +123,8 @@ Eddie.router = {
     if (hash.startsWith('playbook/')) {
       var id = hash.split('/')[1];
       this.navigatePlaybook(id);
+    } else if (hash === 'audit') {
+      this.switchTab('audit');
     } else if (hash === 'trainer') {
       this.switchTab('trainer');
     } else if (hash === 'docsync') {

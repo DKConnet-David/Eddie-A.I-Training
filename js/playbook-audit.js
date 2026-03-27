@@ -254,10 +254,8 @@ Eddie.playbookAudit = {
   _refreshAudit: function() {
     var select = document.getElementById('audit-playbook-select');
     if (select && select.value) {
-      var html = this.showAuditForPlaybook(select.value);
-      document.getElementById('audit-results').innerHTML = html;
-      var overlayResults = document.getElementById('audit-overlay-results');
-      if (overlayResults) overlayResults.innerHTML = html;
+      // Trigger the change event to update both results and summary
+      select.dispatchEvent(new Event('change'));
     }
   },
 

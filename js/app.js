@@ -522,40 +522,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     auditSelect.addEventListener('change', function() {
       var resultsEl = document.getElementById('audit-results');
-      var overlayResults = document.getElementById('audit-overlay-results');
+      var summaryEl = document.getElementById('audit-summary');
       if (!auditSelect.value) {
         resultsEl.innerHTML = '';
-        overlayResults.innerHTML = '';
+        if (summaryEl) summaryEl.innerHTML = '';
         return;
       }
-      var html = Eddie.playbookAudit.showAuditForPlaybook(auditSelect.value);
-      resultsEl.innerHTML = html;
-      overlayResults.innerHTML = html;
-    });
-
-    // Expand button — open full overlay
-    document.getElementById('audit-expand-btn').addEventListener('click', function() {
-      var overlay = document.getElementById('audit-overlay');
-      var overlayResults = document.getElementById('audit-overlay-results');
-      if (auditSelect.value) {
-        overlayResults.innerHTML = Eddie.playbookAudit.showAuditForPlaybook(auditSelect.value);
-      } else {
-        overlayResults.innerHTML = '<p style="color:var(--text-muted);">Select a playbook first.</p>';
-      }
-      overlay.classList.remove('hidden');
-      overlay.style.display = 'flex';
-    });
-
-    document.getElementById('audit-overlay-close').addEventListener('click', function() {
-      var overlay = document.getElementById('audit-overlay');
-      overlay.classList.add('hidden');
-      overlay.style.display = 'none';
-    });
-
-    document.getElementById('audit-overlay').addEventListener('click', function(e) {
-      if (e.target === this) {
-        this.classList.add('hidden');
-        this.style.display = 'none';
+      var report = Eddie.playbookAudit.audit(auditSelect.value);
+      resultsEl.innerHTML = Eddie.playbookAudit.formatReport(report);
+      if (summaryEl && report) {
+        var e = report.errors.length;
+        var w = report.warnings.length;
+        var s = report.suggestions.length;
+        if (e === 0 && w === 0 && s === 0) {
+          summaryEl.innerHTML = '<span style="color:var(--success,#0a8);">All clear!</span>';
+        } else {
+          summaryEl.innerHTML =
+            (e > 0 ? '<span style="color:#e53e3e;">' + e + ' error' + (e > 1 ? 's' : '') + '</span> ' : '') +
+            (w > 0 ? '<span style="color:#b47a1a;">' + w + ' warning' + (w > 1 ? 's' : '') + '</span> ' : '') +
+            (s > 0 ? '<span style="color:#0369a1;">' + s + ' suggestion' + (s > 1 ? 's' : '') + '</span>' : '');
+        }
       }
     });
   }
