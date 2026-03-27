@@ -1,8 +1,11 @@
 // Google Docs export — uploads playbook HTML to Google Drive as a native Google Doc
+// Supports creating new docs or updating existing ones via Google Picker
 
 Eddie.gdocsExport = {
   accessToken: null,
   tokenClient: null,
+  pickerLoaded: false,
+  targetFileId: null, // set when updating an existing doc
 
   init: function() {
     var btn = document.getElementById('docsync-gdocs-btn');
@@ -13,6 +16,7 @@ Eddie.gdocsExport = {
     if (resetBtn) {
       resetBtn.addEventListener('click', function() { Eddie.gdocsExport.resetAuth(); });
     }
+    this.showLastDoc();
   },
 
   resetAuth: function() {
@@ -25,6 +29,19 @@ Eddie.gdocsExport = {
     Eddie.docExport.setStatus('success', 'Google account reset. Click "Export to Google Docs" to sign in again.');
   },
 
+  // Show last exported doc link
+  showLastDoc: function() {
+    var lastId = localStorage.getItem('eddie_gdocs_last_id');
+    var lastName = localStorage.getItem('eddie_gdocs_last_name');
+    var el = document.getElementById('gdocs-last-doc');
+    var link = document.getElementById('gdocs-last-doc-link');
+    if (lastId && el && link) {
+      link.href = 'https://docs.google.com/document/d/' + lastId + '/edit';
+      link.textContent = lastName || 'Open document';
+      el.style.display = 'block';
+    }
+  },
+
   // Prompt for Client ID if not stored
   ensureClientId: function() {
     var clientId = Eddie.storage.getGoogleClientId();
@@ -34,7 +51,8 @@ Eddie.gdocsExport = {
       'Enter your Google OAuth Client ID to enable Google Docs export.\n\n' +
       'You can create one at console.cloud.google.com under\n' +
       'APIs & Services > Credentials > OAuth 2.0 Client ID (Web application).\n\n' +
-      'Make sure the Google Drive API is enabled and your origin is in Authorized JavaScript Origins.'
+      'Make sure the Google Drive API and Google Picker API are enabled,\n' +
+      'and your origin is in Authorized JavaScript Origins.'
     );
     if (clientId && clientId.trim()) {
       Eddie.storage.setGoogleClientId(clientId.trim());
@@ -44,25 +62,35 @@ Eddie.gdocsExport = {
   },
 
   // Initialize the Google token client (GIS)
-  initTokenClient: function(clientId) {
-    if (this.tokenClient) return;
-
+  initTokenClient: function(clientId, callback) {
     if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
       Eddie.docExport.setStatus('error', 'Google Identity Services not loaded. Check your internet connection.');
       return;
     }
 
-    this.tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: 'https://www.googleapis.com/auth/drive.file',
-      callback: function(response) {
-        if (response.error) {
-          Eddie.docExport.setStatus('error', 'Auth failed: ' + response.error);
-          return;
+    // Recreate token client if not yet created
+    if (!this.tokenClient) {
+      this.tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/drive.file',
+        callback: function(response) {
+          if (response.error) {
+            Eddie.docExport.setStatus('error', 'Auth failed: ' + response.error);
+            return;
+          }
+          Eddie.gdocsExport.accessToken = response.access_token;
+          if (callback) callback();
         }
-        Eddie.gdocsExport.accessToken = response.access_token;
-        Eddie.gdocsExport.uploadToGoogleDocs();
-      }
+      });
+    }
+  },
+
+  // Load Google Picker API
+  loadPicker: function(callback) {
+    if (this.pickerLoaded) { callback(); return; }
+    gapi.load('picker', function() {
+      Eddie.gdocsExport.pickerLoaded = true;
+      callback();
     });
   },
 
@@ -73,17 +101,119 @@ Eddie.gdocsExport = {
       return;
     }
 
-    Eddie.docExport.setStatus('syncing', 'Authenticating with Google...');
-    this.initTokenClient(clientId);
+    var self = this;
 
-    if (!this.tokenClient) return;
+    // Ensure auth, then show choice
+    var proceed = function() {
+      self.showChoiceDialog();
+    };
 
-    // If we already have a token, try to use it; otherwise request one
-    if (this.accessToken) {
-      this.uploadToGoogleDocs();
+    self.initTokenClient(clientId, proceed);
+
+    if (self.accessToken) {
+      proceed();
     } else {
-      this.tokenClient.requestAccessToken({ prompt: 'select_account' });
+      Eddie.docExport.setStatus('syncing', 'Authenticating with Google...');
+      self.tokenClient.requestAccessToken({ prompt: 'select_account' });
     }
+  },
+
+  // Show a dialog: create new or pick existing
+  showChoiceDialog: function() {
+    // Remove any existing dialog
+    var existing = document.getElementById('gdocs-choice-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'gdocs-choice-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+    var dialog = document.createElement('div');
+    dialog.style.cssText = 'background:var(--bg1,#fff);border-radius:12px;padding:28px 32px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.25);font-family:inherit;';
+
+    var lastId = localStorage.getItem('eddie_gdocs_last_id');
+    var lastName = localStorage.getItem('eddie_gdocs_last_name');
+    var updateLastBtn = '';
+    if (lastId) {
+      updateLastBtn =
+        '<button id="gdocs-choice-last" style="width:100%;padding:12px;margin-bottom:10px;border:1px solid var(--accent,#4285f4);' +
+        'background:var(--bg2,#f8f9fa);color:var(--text1,#333);border-radius:8px;cursor:pointer;font-size:14px;text-align:left;">' +
+        '<strong>Update last export</strong><br><span style="font-size:12px;color:var(--text-muted,#666);">' +
+        (lastName || 'Previous document') + '</span></button>';
+    }
+
+    dialog.innerHTML =
+      '<h3 style="margin:0 0 16px 0;font-size:17px;">Export to Google Docs</h3>' +
+      '<button id="gdocs-choice-new" style="width:100%;padding:12px;margin-bottom:10px;background:#4285f4;color:#fff;' +
+      'border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;">Create New Document</button>' +
+      updateLastBtn +
+      '<button id="gdocs-choice-pick" style="width:100%;padding:12px;margin-bottom:10px;border:1px solid var(--accent,#4285f4);' +
+      'background:var(--bg2,#f8f9fa);color:var(--text1,#333);border-radius:8px;cursor:pointer;font-size:14px;text-align:left;">' +
+      '<strong>Choose existing document</strong><br><span style="font-size:12px;color:var(--text-muted,#666);">Browse Google Drive to select a doc to overwrite</span></button>' +
+      '<button id="gdocs-choice-cancel" style="width:100%;padding:8px;background:none;border:none;color:var(--text-muted,#888);' +
+      'cursor:pointer;font-size:13px;">Cancel</button>';
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    var self = this;
+
+    // Close on overlay click
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    document.getElementById('gdocs-choice-cancel').addEventListener('click', function() {
+      overlay.remove();
+    });
+
+    document.getElementById('gdocs-choice-new').addEventListener('click', function() {
+      overlay.remove();
+      self.targetFileId = null;
+      self.uploadToGoogleDocs();
+    });
+
+    if (lastId) {
+      document.getElementById('gdocs-choice-last').addEventListener('click', function() {
+        overlay.remove();
+        self.targetFileId = lastId;
+        self.uploadToGoogleDocs();
+      });
+    }
+
+    document.getElementById('gdocs-choice-pick').addEventListener('click', function() {
+      overlay.remove();
+      self.openPicker();
+    });
+  },
+
+  // Open Google Picker to select an existing Google Doc
+  openPicker: function() {
+    var self = this;
+    Eddie.docExport.setStatus('syncing', 'Opening file picker...');
+
+    this.loadPicker(function() {
+      var docsView = new google.picker.DocsView(google.picker.ViewId.DOCUMENTS)
+        .setMimeTypes('application/vnd.google-apps.document')
+        .setMode(google.picker.DocsViewMode.LIST);
+
+      var picker = new google.picker.PickerBuilder()
+        .setTitle('Select a Google Doc to overwrite')
+        .addView(docsView)
+        .setOAuthToken(self.accessToken)
+        .setCallback(function(data) {
+          if (data.action === google.picker.Action.PICKED) {
+            var doc = data.docs[0];
+            self.targetFileId = doc.id;
+            Eddie.docExport.setStatus('syncing', 'Updating "' + doc.name + '"...');
+            self.uploadToGoogleDocs();
+          } else if (data.action === google.picker.Action.CANCEL) {
+            Eddie.docExport.setStatus('', 'Export cancelled.');
+          }
+        })
+        .build();
+      picker.setVisible(true);
+    });
   },
 
   buildDocHtml: function() {
@@ -138,54 +268,109 @@ Eddie.gdocsExport = {
   },
 
   uploadToGoogleDocs: function() {
-    Eddie.docExport.setStatus('syncing', 'Uploading to Google Docs...');
-
     var html = this.buildDocHtml();
-    var fileName = 'Eddie AI Playbooks — ' +
-      new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    var self = this;
+    var fileId = this.targetFileId;
 
-    var boundary = '---EddieExport' + Date.now();
-    var metadata = JSON.stringify({
-      name: fileName,
-      mimeType: 'application/vnd.google-apps.document'
-    });
+    if (fileId) {
+      // Update existing document — replace contents via Drive API
+      Eddie.docExport.setStatus('syncing', 'Updating existing document...');
 
-    var multipartBody =
-      '--' + boundary + '\r\n' +
-      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-      metadata + '\r\n' +
-      '--' + boundary + '\r\n' +
-      'Content-Type: text/html; charset=UTF-8\r\n\r\n' +
-      html + '\r\n' +
-      '--' + boundary + '--';
+      var boundary = '---EddieExport' + Date.now();
+      var metadata = JSON.stringify({});
 
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart');
-    xhr.setRequestHeader('Authorization', 'Bearer ' + this.accessToken);
-    xhr.setRequestHeader('Content-Type', 'multipart/related; boundary=' + boundary);
+      var multipartBody =
+        '--' + boundary + '\r\n' +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        metadata + '\r\n' +
+        '--' + boundary + '\r\n' +
+        'Content-Type: text/html; charset=UTF-8\r\n\r\n' +
+        html + '\r\n' +
+        '--' + boundary + '--';
 
-    xhr.onload = function() {
-      if (xhr.status === 200 || xhr.status === 201) {
-        var result = JSON.parse(xhr.responseText);
-        var docUrl = 'https://docs.google.com/document/d/' + result.id + '/edit';
-        Eddie.docExport.setStatus('success',
-          '&#10003; Exported to Google Docs — <a href="' + docUrl + '" target="_blank" ' +
-          'style="color:var(--accent);text-decoration:underline;">Open document</a>');
-      } else if (xhr.status === 401) {
-        // Token expired — clear and retry
-        Eddie.gdocsExport.accessToken = null;
-        Eddie.gdocsExport.tokenClient.requestAccessToken({ prompt: 'select_account' });
-      } else {
-        var errMsg = 'Upload failed (HTTP ' + xhr.status + ')';
-        try { errMsg = JSON.parse(xhr.responseText).error.message; } catch(e) {}
-        Eddie.docExport.setStatus('error', errMsg);
-      }
-    };
+      var xhr = new XMLHttpRequest();
+      xhr.open('PATCH', 'https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=multipart');
+      xhr.setRequestHeader('Authorization', 'Bearer ' + self.accessToken);
+      xhr.setRequestHeader('Content-Type', 'multipart/related; boundary=' + boundary);
 
-    xhr.onerror = function() {
-      Eddie.docExport.setStatus('error', 'Network error — could not reach Google Drive.');
-    };
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          var result = JSON.parse(xhr.responseText);
+          var docUrl = 'https://docs.google.com/document/d/' + result.id + '/edit';
+          localStorage.setItem('eddie_gdocs_last_id', result.id);
+          localStorage.setItem('eddie_gdocs_last_name', result.name);
+          self.showLastDoc();
+          Eddie.docExport.setStatus('success',
+            '&#10003; Updated Google Doc — <a href="' + docUrl + '" target="_blank" ' +
+            'style="color:var(--accent);text-decoration:underline;">Open document</a>');
+        } else if (xhr.status === 401) {
+          self.accessToken = null;
+          self.tokenClient.requestAccessToken({ prompt: 'select_account' });
+        } else {
+          var errMsg = 'Update failed (HTTP ' + xhr.status + ')';
+          try { errMsg = JSON.parse(xhr.responseText).error.message; } catch(e) {}
+          Eddie.docExport.setStatus('error', errMsg);
+        }
+      };
 
-    xhr.send(multipartBody);
+      xhr.onerror = function() {
+        Eddie.docExport.setStatus('error', 'Network error — could not reach Google Drive.');
+      };
+
+      xhr.send(multipartBody);
+
+    } else {
+      // Create new document
+      Eddie.docExport.setStatus('syncing', 'Creating new Google Doc...');
+
+      var fileName = 'Eddie AI Playbooks — ' +
+        new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+      var boundary = '---EddieExport' + Date.now();
+      var metadata = JSON.stringify({
+        name: fileName,
+        mimeType: 'application/vnd.google-apps.document'
+      });
+
+      var multipartBody =
+        '--' + boundary + '\r\n' +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        metadata + '\r\n' +
+        '--' + boundary + '\r\n' +
+        'Content-Type: text/html; charset=UTF-8\r\n\r\n' +
+        html + '\r\n' +
+        '--' + boundary + '--';
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart');
+      xhr.setRequestHeader('Authorization', 'Bearer ' + self.accessToken);
+      xhr.setRequestHeader('Content-Type', 'multipart/related; boundary=' + boundary);
+
+      xhr.onload = function() {
+        if (xhr.status === 200 || xhr.status === 201) {
+          var result = JSON.parse(xhr.responseText);
+          var docUrl = 'https://docs.google.com/document/d/' + result.id + '/edit';
+          localStorage.setItem('eddie_gdocs_last_id', result.id);
+          localStorage.setItem('eddie_gdocs_last_name', result.name || fileName);
+          self.showLastDoc();
+          Eddie.docExport.setStatus('success',
+            '&#10003; Exported to Google Docs — <a href="' + docUrl + '" target="_blank" ' +
+            'style="color:var(--accent);text-decoration:underline;">Open document</a>');
+        } else if (xhr.status === 401) {
+          self.accessToken = null;
+          self.tokenClient.requestAccessToken({ prompt: 'select_account' });
+        } else {
+          var errMsg = 'Upload failed (HTTP ' + xhr.status + ')';
+          try { errMsg = JSON.parse(xhr.responseText).error.message; } catch(e) {}
+          Eddie.docExport.setStatus('error', errMsg);
+        }
+      };
+
+      xhr.onerror = function() {
+        Eddie.docExport.setStatus('error', 'Network error — could not reach Google Drive.');
+      };
+
+      xhr.send(multipartBody);
+    }
   }
 };
