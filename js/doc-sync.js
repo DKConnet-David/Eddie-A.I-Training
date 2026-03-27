@@ -25,6 +25,7 @@ Eddie.docExport = {
     Eddie.playbookOrder.forEach(function(id) {
       var pb = Eddie.playbooks[id];
       if (!pb) return;
+      if (pb.status !== 'active') return;
 
       var overrides = Eddie.storage.getPlaybookOverrides();
       var md = (overrides[id] && overrides[id].markdown) ? overrides[id].markdown : pb.markdown;
@@ -49,18 +50,18 @@ Eddie.docExport = {
     var body = document.getElementById('docsync-body');
     if (!body) return;
 
-    var count = Eddie.playbookOrder.filter(function(id) { return !!Eddie.playbooks[id]; }).length;
-    var names = Eddie.playbookOrder.map(function(id) {
+    var activePlaybooks = Eddie.playbookOrder.filter(function(id) {
       var pb = Eddie.playbooks[id];
-      if (!pb) return null;
+      return pb && pb.status === 'active';
+    });
+    var count = activePlaybooks.length;
+    var names = activePlaybooks.map(function(id) {
+      var pb = Eddie.playbooks[id];
       var label = id === 'master' ? 'Master Entry Point' :
                   id === 'rules' ? 'Universal Rules' :
                   'Playbook ' + id.toUpperCase();
-      var badge = pb.status === 'active'
-        ? '<span class="tag tag-green">Active</span>'
-        : '<span class="tag tag-amber">Soon</span>';
-      return '<li style="padding:4px 0;">' + label + ' — <span style="color:var(--text-muted)">' + (pb.subtitle || '') + '</span> ' + badge + '</li>';
-    }).filter(Boolean);
+      return '<li style="padding:4px 0;">' + label + ' — <span style="color:var(--text-muted)">' + (pb.subtitle || '') + '</span> <span class="tag tag-green">Active</span></li>';
+    });
 
     body.innerHTML =
       '<h3 style="font-size:15px;margin-bottom:12px;">Document Contents</h3>' +
@@ -68,7 +69,7 @@ Eddie.docExport = {
         names.join('') +
       '</ul>' +
       '<p style="margin-top:16px;font-size:12px;color:var(--text-muted);">' +
-        count + ' playbooks will be included. Edited playbooks use your saved changes.' +
+        count + ' active playbooks will be included. "Coming Soon" playbooks are excluded. Edited playbooks use your saved changes.' +
       '</p>';
   },
 
